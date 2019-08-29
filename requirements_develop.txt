@@ -1,0 +1,5 @@
+pynvim
+notedown
+mypy
+pudb
+jupytext

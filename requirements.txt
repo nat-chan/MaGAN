@@ -3,3 +3,7 @@ torchvision
 dominate>=2.3.1
 dill
 scikit-image
+
+scipy==1.1.0 # scipy.misc.imread was deprecated
+tensorboardX
+torchsummary

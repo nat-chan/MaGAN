@@ -5,3 +5,8 @@ results/
 *.zip
 *.pkl
 *.pyc
+
+.ipynb_checkpoints/
+.mypy_cache/
+.vscode/
+runs/
