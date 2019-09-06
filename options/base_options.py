@@ -66,6 +66,9 @@ class BaseOptions():
         parser.add_argument('--nef', type=int, default=16, help='# of encoder filters in the first conv layer')
         parser.add_argument('--use_vae', action='store_true', help='enable training with an image encoder.')
 
+        # for my experiments
+        parser.add_argument('--use_hed', action='store_false', help='if specified, use Holistically-Nested Edge Detection')
+
         self.initialized = True
         return parser
 
