@@ -67,7 +67,7 @@ class BaseOptions():
         parser.add_argument('--use_vae', action='store_true', help='enable training with an image encoder.')
 
         # for my experiments
-        parser.add_argument('--use_hed', action='store_false', help='if specified, use Holistically-Nested Edge Detection')
+        parser.add_argument('--use_hed', action='store_true', help='if specified, use Holistically-Nested Edge Detection')
 
         self.initialized = True
         return parser
