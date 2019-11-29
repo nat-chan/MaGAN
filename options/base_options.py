@@ -68,6 +68,7 @@ class BaseOptions():
 
         # for my experiments
         parser.add_argument('--use_hed', action='store_true', help='if specified, use Holistically-Nested Edge Detection')
+        parser.add_argument('--hed_ratio', type=int, default=100, help='the percentage of a line drawing that is not to be reduced but to be retained, default:100')
 
         self.initialized = True
         return parser

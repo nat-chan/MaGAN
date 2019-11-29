@@ -97,7 +97,8 @@ class CocoHEDDataset(Pix2pixDataset):
             instance_paths = []
 
         if opt.use_hed:
-            hed_dir = os.path.join(root, '%s_hed' % phase)
+            ratio = '' if opt.hed_ratio == 100 else str(opt.hed_ratio)
+            hed_dir = os.path.join(root, '%s_hed%s' % (phase,ratio))
             hed_paths = make_dataset(hed_dir, recursive=False, read_cache=True)
 
             if not opt.coco_no_portraits and opt.isTrain:
