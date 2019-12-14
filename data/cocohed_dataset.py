@@ -97,7 +97,7 @@ class CocoHEDDataset(Pix2pixDataset):
             instance_paths = []
 
         if opt.use_hed:
-            ratio = '' if opt.hed_ratio == 100 else str(opt.hed_ratio)
+            ratio = '' if opt.hed_ratio == 100 else str(opt.hed_ratio)+"x1"
             hed_dir = os.path.join(root, '%s_hed%s' % (phase,ratio))
             hed_paths = make_dataset(hed_dir, recursive=False, read_cache=True)
 
