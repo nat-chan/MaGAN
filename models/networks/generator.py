@@ -30,11 +30,11 @@ class MaGANResInputGenerator(BaseNetwork):
         self.up = nn.Upsample(scale_factor=2)
 
         # down
-        self.conv_0 = nn.Conv2d(1     ,  1 * nf, kernel_size=3, stride=1, padding=1)
-        self.conv_1 = nn.Conv2d(1 * nf,  2 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_2 = nn.Conv2d(2 * nf,  4 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_3 = nn.Conv2d(4 * nf,  8 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_4 = nn.Conv2d(8 * nf, 16 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_0 = nn.Conv2d(1      ,  1 * nf, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf,  2 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf,  4 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf,  8 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf, 16 * nf, kernel_size=3, stride=2, padding=1)
         self.conv_5 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
         self.conv_6 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
 
@@ -72,36 +72,23 @@ class MaGANResInputGenerator(BaseNetwork):
         edge = input[:,-1:,:,:]
         seg = input[:,:-1,:,:]
         latent_0 = self.conv_0(edge)                              # 64   # 256
-        print(latent_0.shape)
         latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 128
-        print(latent_1.shape)
         latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 64
-        print(latent_2.shape)
         latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 32
-        print(latent_3.shape)
         latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 16
-        print(latent_4.shape)
         latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 1024 # 16
-        print(latent_5.shape)
         latent_6 = self.norm_6(self.conv_6(self.lrelu(latent_5))) # 1024 # 16
-        print(latent_6.shape)
         x = latent_6
         x = self.spaderesblk_6(x, seg, latent_5) # 1024 # 16
-        print(x.shape)
         x = self.spaderesblk_5(x, seg, latent_4) # 1024 # 16
-        print(x.shape)
         x = self.up(x)
-        x = self.spaderesblk_4(x, seg, latent_3) #512 #32
-        print(x.shape)
+        x = self.spaderesblk_4(x, seg, latent_3) # 512  # 32
         x = self.up(x)
-        x = self.spaderesblk_3(x, seg, latent_2) #256 #64
-        print(x.shape)
+        x = self.spaderesblk_3(x, seg, latent_2) # 256  # 64
         x = self.up(x)
-        x = self.spaderesblk_2(x, seg, latent_1) #128 #128
-        print(x.shape)
+        x = self.spaderesblk_2(x, seg, latent_1) # 128  # 128
         x = self.up(x)
-        x = self.spaderesblk_1(x, seg, edge)     # 64 # 256
-        print(x.shape)
+        x = self.spaderesblk_1(x, seg, edge)     # 64   # 256
         x = self.conv_img(F.leaky_relu(x, 2e-1))
         x = F.tanh(x)
         return x
