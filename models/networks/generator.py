@@ -11,6 +11,87 @@ from models.networks.normalization import get_nonspade_norm_layer
 from models.networks.architecture import ResnetBlock as ResnetBlock
 from models.networks.architecture import SPADEResnetBlock as SPADEResnetBlock
 
+class MaGANResALLInputGenerator(BaseNetwork):
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+#        parser.set_defaults(norm_G='instance')
+
+        return parser
+
+    def __init__(self, opt):
+        super().__init__()
+        self.opt = opt
+        nf = opt.ngf #64
+
+        # sharing modules in each hierarchy, number of learning parameters == 0
+        self.lrelu = nn.LeakyReLU(0.2, True)
+        self.up = nn.Upsample(scale_factor=2)
+
+        # down
+        self.conv_0 = nn.Conv2d(184    ,  1 * nf, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf,  2 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf,  4 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf,  8 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf, 16 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_5 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+        self.conv_6 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+
+        # down
+        #self.norm_0 = nn.InstanceNorm2d( 1 * nf, affine=False)
+        self.norm_1 = nn.InstanceNorm2d( 2 * nf, affine=False)
+        self.norm_2 = nn.InstanceNorm2d( 4 * nf, affine=False)
+        self.norm_3 = nn.InstanceNorm2d( 8 * nf, affine=False)
+        self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
+        self.norm_5 = nn.InstanceNorm2d(16 * nf, affine=False)
+        self.norm_6 = lambda x:x
+
+        # res
+        #self.res1 = ResnetBlock(opt.ngf * mult, norm_layer=norm_layer, activation=activation, kernel_size=opt.resnet_kernel_size)
+
+        # up
+        import argparse
+        opt_copy = argparse.Namespace(**vars(opt))
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
+        self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
+        self.spaderesblk_5 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 512
+        self.spaderesblk_4 = SPADEResnetBlock(16 * nf,  8 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 256
+        self.spaderesblk_3 = SPADEResnetBlock( 8 * nf,  4 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 128
+        self.spaderesblk_2 = SPADEResnetBlock( 4 * nf,  2 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 1
+        self.spaderesblk_1 = SPADEResnetBlock( 2 * nf,  1 * nf, opt_copy)
+
+        self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)
+
+    def forward(self, input, z=None):
+        edge = input[:,-1:,:,:]
+        seg = input[:,:-1,:,:]
+        latent_0 = self.conv_0(input)                              # 64   # 256
+        latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 128
+        latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 64
+        latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 32
+        latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 16
+        latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 1024 # 16
+        latent_6 = self.norm_6(self.conv_6(self.lrelu(latent_5))) # 1024 # 16
+        x = latent_6
+        x = self.spaderesblk_6(x, seg, latent_5) # 1024 # 16
+        x = self.spaderesblk_5(x, seg, latent_4) # 1024 # 16
+        x = self.up(x)
+        x = self.spaderesblk_4(x, seg, latent_3) # 512  # 32
+        x = self.up(x)
+        x = self.spaderesblk_3(x, seg, latent_2) # 256  # 64
+        x = self.up(x)
+        x = self.spaderesblk_2(x, seg, latent_1) # 128  # 128
+        x = self.up(x)
+        x = self.spaderesblk_1(x, seg, edge)     # 64   # 256
+        x = self.conv_img(F.leaky_relu(x, 2e-1))
+        x = F.tanh(x)
+        return x
+
 
 class MaGANResInputGenerator(BaseNetwork):
     @staticmethod
@@ -89,6 +170,87 @@ class MaGANResInputGenerator(BaseNetwork):
         x = self.spaderesblk_2(x, seg, latent_1) # 128  # 128
         x = self.up(x)
         x = self.spaderesblk_1(x, seg, edge)     # 64   # 256
+        x = self.conv_img(F.leaky_relu(x, 2e-1))
+        x = F.tanh(x)
+        return x
+
+class MaGANResALLInputGeneratorV2(BaseNetwork):
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+#        parser.set_defaults(norm_G='instance')
+
+        return parser
+
+    def __init__(self, opt):
+        super().__init__()
+        self.opt = opt
+        nf = opt.ngf #64
+
+        # sharing modules in each hierarchy, number of learning parameters == 0
+        self.lrelu = nn.LeakyReLU(0.2, True)
+        self.up = nn.Upsample(scale_factor=2)
+
+        # down
+        self.conv_0 = nn.Conv2d(184    ,  1 * nf, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf,  2 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf,  4 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf,  8 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf, 16 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_5 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+        self.conv_6 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+
+        # down
+        #self.norm_0 = nn.InstanceNorm2d( 1 * nf, affine=False)
+        self.norm_1 = nn.InstanceNorm2d( 2 * nf, affine=False)
+        self.norm_2 = nn.InstanceNorm2d( 4 * nf, affine=False)
+        self.norm_3 = nn.InstanceNorm2d( 8 * nf, affine=False)
+        self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
+        self.norm_5 = nn.InstanceNorm2d(16 * nf, affine=False)
+        self.norm_6 = lambda x:x
+
+        # res
+        #self.res1 = ResnetBlock(opt.ngf * mult, norm_layer=norm_layer, activation=activation, kernel_size=opt.resnet_kernel_size)
+
+        # up
+        import argparse
+        opt_copy = argparse.Namespace(**vars(opt))
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
+        self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
+        self.spaderesblk_5 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 512
+        self.spaderesblk_4 = SPADEResnetBlock(16 * nf,  8 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 256
+        self.spaderesblk_3 = SPADEResnetBlock( 8 * nf,  4 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 128
+        self.spaderesblk_2 = SPADEResnetBlock( 4 * nf,  2 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc -1 + 64
+        self.spaderesblk_1 = SPADEResnetBlock( 2 * nf,  1 * nf, opt_copy)
+
+        self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)
+
+    def forward(self, input, z=None):
+        edge = input[:,-1:,:,:]
+        seg = input[:,:-1,:,:]
+        latent_0 = self.conv_0(input)                              # 64   # 256
+        latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 128
+        latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 64
+        latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 32
+        latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 16
+        latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 1024 # 16
+        latent_6 = self.norm_6(self.conv_6(self.lrelu(latent_5))) # 1024 # 16
+        x = latent_6
+        x = self.spaderesblk_6(x, seg, latent_5) # 1024 # 16
+        x = self.spaderesblk_5(x, seg, latent_4) # 1024 # 16
+        x = self.up(x)
+        x = self.spaderesblk_4(x, seg, latent_3) # 512  # 32
+        x = self.up(x)
+        x = self.spaderesblk_3(x, seg, latent_2) # 256  # 64
+        x = self.up(x)
+        x = self.spaderesblk_2(x, seg, latent_1) # 128  # 128
+        x = self.up(x)
+        x = self.spaderesblk_1(x, seg, latent_0)     # 64   # 256
         x = self.conv_img(F.leaky_relu(x, 2e-1))
         x = F.tanh(x)
         return x
