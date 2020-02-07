@@ -121,9 +121,10 @@ class Visualizer():
             v = v.mean().float()
             message += '%s: %.3f ' % (k, v)
 
-        print(message)
+#        print(message)
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)
+        return message
 
     def convert_visuals_to_numpy(self, visuals):
         for key, t in visuals.items():
