@@ -3,3 +3,6 @@ notedown
 mypy
 pudb
 jupytext
+pylint
+rope==0.14.0
+autopep8
