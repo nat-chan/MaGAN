@@ -117,7 +117,6 @@ class Pix2PixModel(torch.nn.Module):
             data['mask'] = data['mask'].cuda()
 
         if self.opt.use_hed:
-#            n = int(torch.randint(15,32,(1,)))
             masked = (data['image']-1)*data['mask']+1
             return torch.cat((data['hed'], masked), dim=1), data['image']
 
