@@ -65,7 +65,7 @@ class MiGANLatentALLGenerator(BaseNetwork):
         self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)
 
     def forward(self, input, z=None):
-        input = input[:,1:,:,:]
+#        input = input[:,1:,:,:]
         latent_0 = self.conv_0(input)                             # 64   # 256
         latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 128
         latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 64

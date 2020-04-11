@@ -115,6 +115,9 @@ class Pix2PixModel(torch.nn.Module):
             data['image'] = data['image'].cuda()
             data['hed'] = data['hed'].cuda()
 
+        if self.opt.use_hed:
+            return data['hed'], data['image']
+
         # create one-hot label map
         label_map = data['label']
         bs, _, h, w = label_map.size()
@@ -124,13 +127,10 @@ class Pix2PixModel(torch.nn.Module):
         input_semantics = input_label.scatter_(1, label_map, 1.0)
 
         # concatenate instance map if it exists
-        if not self.opt.no_instance and not self.opt.use_hed:
+        if not self.opt.no_instance:
             inst_map = data['instance']
             instance_edge_map = self.get_edges(inst_map)
             input_semantics = torch.cat((input_semantics, instance_edge_map), dim=1)
-
-        if self.opt.use_hed:
-            input_semantics = torch.cat((input_semantics, data['hed']), dim=1)
 
         return input_semantics, data['image']
 

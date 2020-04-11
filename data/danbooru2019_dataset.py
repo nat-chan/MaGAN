@@ -26,7 +26,6 @@ class Danbooru2019Dataset(Pix2pixDataset):
         parser.set_defaults(crop_size=256)
         parser.set_defaults(display_winsize=256)
         parser.set_defaults(label_nc=0)
-        parser.set_defaults(contain_dontcare_label=True)
         return parser
 
     def initialize(self, opt):
