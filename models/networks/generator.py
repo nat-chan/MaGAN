@@ -29,13 +29,13 @@ class MiGANLatentALLGenerator(BaseNetwork):
         self.up = nn.Upsample(scale_factor=2)
 
         # down
-        self.conv_0 = nn.Conv2d(1      ,  1 * nf, kernel_size=3, stride=1, padding=1)
-        self.conv_1 = nn.Conv2d(1  * nf,  2 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_2 = nn.Conv2d(2  * nf,  4 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_3 = nn.Conv2d(4  * nf,  8 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_4 = nn.Conv2d(8  * nf, 16 * nf, kernel_size=3, stride=2, padding=1)
-        self.conv_5 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
-        self.conv_6 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+        self.conv_0 = nn.Conv2d(self.opt.semantic_nc, 1  * nf, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf             , 2  * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf             , 4  * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf             , 8  * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf             , 16 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_5 = nn.Conv2d(16 * nf             , 16 * nf, kernel_size=3, padding=1)
+        self.conv_6 = nn.Conv2d(16 * nf             , 16 * nf, kernel_size=3, padding=1)
 
         # down
         #self.norm_0 = nn.InstanceNorm2d( 1 * nf, affine=False)
@@ -49,17 +49,17 @@ class MiGANLatentALLGenerator(BaseNetwork):
         # up
         import argparse
         opt_copy = argparse.Namespace(**vars(opt))
-        opt_copy.semantic_nc = 1 + 1024
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
-        opt_copy.semantic_nc = 1 + 1024
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
         self.spaderesblk_5 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
-        opt_copy.semantic_nc = 1 + 512
+        opt_copy.semantic_nc = opt.semantic_nc + 512
         self.spaderesblk_4 = SPADEResnetBlock(16 * nf,  8 * nf, opt_copy)
-        opt_copy.semantic_nc = 1 + 256
+        opt_copy.semantic_nc = opt.semantic_nc + 256
         self.spaderesblk_3 = SPADEResnetBlock( 8 * nf,  4 * nf, opt_copy)
-        opt_copy.semantic_nc = 1 + 128
+        opt_copy.semantic_nc = opt.semantic_nc + 128
         self.spaderesblk_2 = SPADEResnetBlock( 4 * nf,  2 * nf, opt_copy)
-        opt_copy.semantic_nc = 1 + 64
+        opt_copy.semantic_nc = opt.semantic_nc + 64
         self.spaderesblk_1 = SPADEResnetBlock( 2 * nf,  1 * nf, opt_copy)
 
         self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)

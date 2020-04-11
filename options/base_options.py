@@ -69,6 +69,9 @@ class BaseOptions():
         # for my experiments
         parser.add_argument('--use_hed', action='store_true', help='if specified, use Holistically-Nested Edge Detection')
         parser.add_argument('--hed_ratio', type=int, default=100, help='the percentage of a line drawing that is not to be reduced but to be retained, default:100')
+        parser.add_argument('--leak_low', type=int, default=16, help='The low value of the point at which the hint color is leaked to the input line drawing')
+        parser.add_argument('--leak_high', type=int, default=32, help='The high value of the point at which the hint color is leaked to the input line drawing')
+        parser.add_argument('--leak_percent', type=float, default=0.5, help='The percentage of the point at which the hint color is leaked to the input line drawing')
 
         self.initialized = True
         return parser

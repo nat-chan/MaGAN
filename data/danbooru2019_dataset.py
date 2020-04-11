@@ -64,10 +64,13 @@ class Danbooru2019Dataset(Pix2pixDataset):
         hed_tensor = transform_label(hed)
         hed_tensor = 1 - hed_tensor # nega -> posi
 
+        mask = (torch.rand(hed_tensor.shape) < self.opt.leak_percent).float()
+
         input_dict = {'label': self.dummy,
                       'instance': self.dummy,
                       'image': image_tensor.cuda(),
                       'hed': hed_tensor.cuda(),
+                      'mask': mask.cuda(),
                       'path': image_path,
                       }
 

@@ -114,9 +114,12 @@ class Pix2PixModel(torch.nn.Module):
             data['instance'] = data['instance'].cuda()
             data['image'] = data['image'].cuda()
             data['hed'] = data['hed'].cuda()
+            data['mask'] = data['mask'].cuda()
 
         if self.opt.use_hed:
-            return data['hed'], data['image']
+#            n = int(torch.randint(15,32,(1,)))
+            masked = (data['image']-1)*data['mask']+1
+            return torch.cat((data['hed'], masked), dim=1), data['image']
 
         # create one-hot label map
         label_map = data['label']
