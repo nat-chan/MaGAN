@@ -69,10 +69,7 @@ class MiGANLatentALLGenerator(BaseNetwork):
         self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)
 
     def compute_latent_vector_size(self, opt):
-        num_up_layers = 5
-        sw = opt.crop_size // (2**num_up_layers)
-        sh = round(sw / opt.aspect_ratio)
-
+        sw, sh = 16, 16
         return sw, sh
 
     def forward(self, input, z=None):
