@@ -2,7 +2,7 @@
 Copyright (C) 2019 NVIDIA Corporation.  All rights reserved.
 Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 """
-
+import configargparse as argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -47,7 +47,6 @@ class MiGANLatentALLGenerator(BaseNetwork):
         self.norm_6 = lambda x:x
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc = opt.semantic_nc + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
@@ -161,7 +160,6 @@ class MaGANResidualGenerator(BaseNetwork):
         self.res8 = ResnetBlock(16 * nf, norm_layer=nn.InstanceNorm2d, kernel_size=2)
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc = opt.semantic_nc + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
@@ -248,7 +246,6 @@ class MaGANLatentALLGenerator(BaseNetwork):
         #self.res1 = ResnetBlock(opt.ngf * mult, norm_layer=norm_layer, activation=activation, kernel_size=opt.resnet_kernel_size)
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc = opt.semantic_nc + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
@@ -327,7 +324,6 @@ class MaGANResALLInputGenerator(BaseNetwork):
         #self.res1 = ResnetBlock(opt.ngf * mult, norm_layer=norm_layer, activation=activation, kernel_size=opt.resnet_kernel_size)
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
@@ -409,7 +405,6 @@ class MaGANResInputGenerator(BaseNetwork):
         #self.res1 = ResnetBlock(opt.ngf * mult, norm_layer=norm_layer, activation=activation, kernel_size=opt.resnet_kernel_size)
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
@@ -490,7 +485,6 @@ class MaGANResALLInputGeneratorV2(BaseNetwork):
         #self.res1 = ResnetBlock(opt.ngf * mult, norm_layer=norm_layer, activation=activation, kernel_size=opt.resnet_kernel_size)
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc = opt.semantic_nc -1 + 1024
         self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
@@ -563,7 +557,6 @@ class MaGANGenerator(BaseNetwork):
         #self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
 
         # up
-        import argparse
         opt_copy = argparse.Namespace(**vars(opt))
         opt_copy.semantic_nc -= 1
         self.spaderesblk_5 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)

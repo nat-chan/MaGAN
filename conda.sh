@@ -5,3 +5,4 @@ conda install dill scikit-image scipy==1.1.0
 conda install -c conda-forge dominate
 conda install pillow=6.1
 conda install tensroflow-gpu
+conda install -c anaconda configargparse

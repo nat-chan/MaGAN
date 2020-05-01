@@ -10,7 +10,7 @@ from argparse import Namespace
 import numpy as np
 from PIL import Image
 import os
-import argparse
+import configargparse as argparse
 import dill as pickle
 import util.coco
 

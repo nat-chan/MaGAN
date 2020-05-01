@@ -4,7 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import sys
-import argparse
+import configargparse as argparse
 import os
 from util import util
 import torch

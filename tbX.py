@@ -5,7 +5,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 
 from models.pix2pix_model import Pix2PixModel
 from options.test_options import TestOptions
-import argparse
+import configargparse as argparse
 import torch
 from torchsummary import summary #type:ignore
 import pdb

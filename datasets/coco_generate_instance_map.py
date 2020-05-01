@@ -4,7 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import os
-import argparse
+import configargparse as argparse
 from pycocotools.coco import COCO
 import numpy as np
 import skimage.io as io
