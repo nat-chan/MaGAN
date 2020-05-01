@@ -64,27 +64,34 @@ class Danbooru2019Dataset(Pix2pixDataset):
         hed_tensor = transform_label(hed)
         hed_tensor = 1 - hed_tensor # nega -> posi
 
-        mask = torch.zeros(hed_tensor.shape, dtype=torch.float32)
-        n = int(torch.randint(self.opt.leak_low, self.opt.leak_high, (1,)))
-        x = torch.randint(1, hed_tensor.shape[1]-1, (n,))
-        y = torch.randint(1, hed_tensor.shape[2]-1, (n,))
-        for i in range(n):
-            mask[0, x[i], y[i]] = 1.
-            if float(torch.rand(1)) < 0.5:
-                mask[0, x[i]+1, y[i]] = 1.
-                mask[0, x[i]-1, y[i]] = 1.
-            if float(torch.rand(1)) < 0.5:
-                mask[0, x[i], y[i]+1] = 1.
-                mask[0, x[i], y[i]-1] = 1.
+        if self.opt.leak_low == -1 and self.opt.leak_high == -1:
+            input_dict = {'label': self.dummy,
+                          'instance': self.dummy,
+                          'image': image_tensor.cuda(),
+                          'hed': hed_tensor.cuda(),
+                          'path': image_path,
+                          }
+        else:
+            mask = torch.zeros(hed_tensor.shape, dtype=torch.float32)
+            n = int(torch.randint(self.opt.leak_low, self.opt.leak_high, (1,)))
+            x = torch.randint(1, hed_tensor.shape[1]-1, (n,))
+            y = torch.randint(1, hed_tensor.shape[2]-1, (n,))
+            for i in range(n):
+                mask[0, x[i], y[i]] = 1.
+                if float(torch.rand(1)) < 0.5:
+                    mask[0, x[i]+1, y[i]] = 1.
+                    mask[0, x[i]-1, y[i]] = 1.
+                if float(torch.rand(1)) < 0.5:
+                    mask[0, x[i], y[i]+1] = 1.
+                    mask[0, x[i], y[i]-1] = 1.
 
-        input_dict = {'label': self.dummy,
-                      'instance': self.dummy,
-                      'image': image_tensor.cuda(),
-                      'hed': hed_tensor.cuda(),
-                      'mask': mask.cuda(),
-                      'path': image_path,
-                      }
-
+            input_dict = {'label': self.dummy,
+                          'instance': self.dummy,
+                          'image': image_tensor.cuda(),
+                          'hed': hed_tensor.cuda(),
+                          'mask': mask.cuda(),
+                          'path': image_path,
+                          }
         # Give subclasses a chance to modify the final output
         self.postprocess(input_dict)
 

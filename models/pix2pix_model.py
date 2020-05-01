@@ -114,11 +114,15 @@ class Pix2PixModel(torch.nn.Module):
             data['instance'] = data['instance'].cuda()
             data['image'] = data['image'].cuda()
             data['hed'] = data['hed'].cuda()
-            data['mask'] = data['mask'].cuda()
+            if not ( self.opt.leak_low == -1 and self.opt.leak_high == -1):
+                data['mask'] = data['mask'].cuda()
 
         if self.opt.use_hed:
-            masked = (data['image']-1)*data['mask']+1
-            return torch.cat((data['hed'], masked), dim=1), data['image']
+            if self.opt.leak_low == -1 and self.opt.leak_high == -1:
+                return data['hed'], data['image']
+            else:
+                masked = (data['image']-1)*data['mask']+1
+                return torch.cat((data['hed'], masked), dim=1), data['image']
 
         # create one-hot label map
         label_map = data['label']
