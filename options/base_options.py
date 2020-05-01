@@ -18,6 +18,9 @@ class BaseOptions():
         self.initialized = False
 
     def initialize(self, parser):
+        # configargparse
+        parser.add_argument('--conf', is_config_file=True, help='config file path')
+
         # experiment specifics
         parser.add_argument('--name', type=str, default='label2coco', help='name of the experiment. It decides where to store samples and models')
 
