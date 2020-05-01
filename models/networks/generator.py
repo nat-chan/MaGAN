@@ -24,6 +24,14 @@ class MiGANLatentALLGenerator(BaseNetwork):
         self.opt = opt
         nf = opt.ngf #64
 
+        self.sw, self.sh = self.compute_latent_vector_size(opt)
+
+        # bottleneck
+        if self.opt.use_vae:
+            self.fc = nn.Linear(opt.z_dim, 16 * nf * self.sw * self.sh)
+        else:
+            self.fc = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+
         # sharing modules in each hierarchy, number of learning parameters == 0
         self.lrelu = nn.LeakyReLU(0.2, True)
         self.up = nn.Upsample(scale_factor=2)
@@ -35,16 +43,13 @@ class MiGANLatentALLGenerator(BaseNetwork):
         self.conv_3 = nn.Conv2d(4  * nf             , 8  * nf, kernel_size=3, stride=2, padding=1)
         self.conv_4 = nn.Conv2d(8  * nf             , 16 * nf, kernel_size=3, stride=2, padding=1)
         self.conv_5 = nn.Conv2d(16 * nf             , 16 * nf, kernel_size=3, padding=1)
-        self.conv_6 = nn.Conv2d(16 * nf             , 16 * nf, kernel_size=3, padding=1)
 
         # down
-        #self.norm_0 = nn.InstanceNorm2d( 1 * nf, affine=False)
         self.norm_1 = nn.InstanceNorm2d( 2 * nf, affine=False)
         self.norm_2 = nn.InstanceNorm2d( 4 * nf, affine=False)
         self.norm_3 = nn.InstanceNorm2d( 8 * nf, affine=False)
         self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
         self.norm_5 = nn.InstanceNorm2d(16 * nf, affine=False)
-        self.norm_6 = lambda x:x
 
         # up
         opt_copy = argparse.Namespace(**vars(opt))
@@ -63,16 +68,31 @@ class MiGANLatentALLGenerator(BaseNetwork):
 
         self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)
 
+    def compute_latent_vector_size(self, opt):
+        num_up_layers = 5
+        sw = opt.crop_size // (2**num_up_layers)
+        sh = round(sw / opt.aspect_ratio)
+
+        return sw, sh
+
     def forward(self, input, z=None):
-#        input = input[:,1:,:,:]
         latent_0 = self.conv_0(input)                             # 64   # 256
         latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 128
         latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 64
         latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 32
         latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 16
         latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 1024 # 16
-        latent_6 = self.norm_6(self.conv_6(self.lrelu(latent_5))) # 1024 # 16
-        x = latent_6
+
+        if self.opt.use_vae:
+            # we sample z from unit normal and reshape the tensor
+            if z is None:
+                z = torch.randn(input.size(0), self.opt.z_dim,
+                                dtype=torch.float32, device=input.get_device())
+            x = self.fc(z)
+            x = x.view(-1, 16 * self.opt.ngf, self.sh, self.sw)
+        else:
+            x = self.fc(self.lrelu(latent_5)) # 1024 # 16
+
         x = self.spaderesblk_6(x, input, latent_5) # 1024 # 16
         x = self.spaderesblk_5(x, input, latent_4) # 1024 # 16
         x = self.up(x)
@@ -86,24 +106,6 @@ class MiGANLatentALLGenerator(BaseNetwork):
         x = self.conv_img(F.leaky_relu(x, 2e-1))
         x = F.tanh(x)
         return x
-
-class ResnetBlock2(nn.Module):
-    def __init__(self, dim, norm_layer, activation=nn.ReLU(False), kernel_size=3):
-        super().__init__()
-
-        pw = (kernel_size - 1) // 2
-        self.conv_block = nn.Sequential(
-            nn.ReflectionPad2d(pw),
-            norm_layer(nn.Conv2d(dim, dim, kernel_size=kernel_size)),
-            activation,
-            nn.ReflectionPad2d(pw),
-            norm_layer(nn.Conv2d(dim, dim, kernel_size=kernel_size))
-        )
-
-    def forward(self, x):
-        y = self.conv_block(x)
-        out = x + y
-        return out
 
 class MaGANResidualGenerator(BaseNetwork):
     @staticmethod
@@ -139,15 +141,6 @@ class MaGANResidualGenerator(BaseNetwork):
         self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
         self.norm_5 = nn.InstanceNorm2d(16 * nf, affine=False)
         self.norm_6 = nn.InstanceNorm2d(16 * nf, affine=False)
-
-#        self.norm_7 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_8 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_9 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_10 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_11 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_12 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_13 = nn.InstanceNorm2d(16 * nf, affine=False)
-#        self.norm_14 = nn.InstanceNorm2d(16 * nf, affine=False)
 
         # res
         self.res1 = ResnetBlock(16 * nf, norm_layer=nn.InstanceNorm2d, kernel_size=2)
