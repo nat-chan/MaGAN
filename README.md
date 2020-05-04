@@ -1,3 +1,50 @@
+# 𝐌𝐚𝐆𝐀𝐍：Mix-texture aware GAN based Image-to-Image translation
+###### tags: `research`
+Multi texture awareとかMixture-adaptiveでもいいかも
+[Google Scholarでは174件出てくる](https://scholar.google.co.jp/scholar?start=0&q=mixture-adaptive&hl=ja&as_sdt=0,5)
+
+## Installation
+
+Clone this repo.
+```bash
+git clone https://github.com/nat-chan/MaGAN
+cd MaGAN/
+```
+
+This code requires Anaconda Environment. Please install dependencies by
+```bash
+./conda.sh
+```
+
+To reproduce the results reported in the paper, you would need an NVIDIA DGX1 machine with 8 V100 GPUs.
+
+
+## How to use
+
+###  Training New Models
+
+New models can be trained with the following commands.
+
+```bash
+tmuxinator start -p tmuxinator/launcher.yml --conf=./parameters/[name_of_experiment].yml
+```
+
+## Code Structure
+
+- `train.py`, `test.py`: the entry point for training and testing.
+- `trainers/pix2pix_trainer.py`: harnesses and reports the progress of training.
+- `models/pix2pix_model.py`: creates the networks, and compute the losses
+- `models/networks/`: defines the architecture of all models
+- `options/`: creates option lists using `configargparse` package. More individuals are dynamically added in other files as well. Please see the section below.
+- `data/`: defines the class for loading images and label maps.
+- `parameters/`: a set of yaml files specifying the hyperparameters of the experiment loaded from the `configargparse` library.
+- `tmuxinator/`: a set of yaml configuration files for projects that are automatically launched using tmuxinator.
+
+
+---
+
+ここから下SPADEオリジナルのREADME.md
+
 [![License CC BY-NC-SA 4.0](https://img.shields.io/badge/license-CC4.0-blue.svg)](https://raw.githubusercontent.com/nvlabs/SPADE/master/LICENSE.md)
 ![Python 3.6](https://img.shields.io/badge/python-3.6-green.svg)
 
