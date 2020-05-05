@@ -67,7 +67,10 @@ for epoch in iter_counter.training_epochs():
             if iter_counter.needs_saving():
                 print('saving the latest model (epoch %d, total_steps %d)' %
                       (epoch, iter_counter.total_steps_so_far))
-                trainer.save('latest')
+                if opt.save_steps:
+                    trainer.save('s%s' % iter_counter.total_steps_so_far)
+                else:
+                    trainer.save('latest')
                 iter_counter.record_current_iter()
 
     trainer.update_learning_rate(epoch)

@@ -1,0 +1,11 @@
+name: launcher
+root: <%= ENV["PWD"] %>
+windows:
+  - editor:
+#      layout: main-horizontal
+      layout: 6a42,300x85,0,0[300x65,0,0{150x65,0,0,32,149x65,151,0,34},300x19,0,66,33]]
+      panes:
+        - export NVIM_LISTEN_ADDRESS=/tmp/nvim_tmuxinator_0; nvim <%= @settings["--conf"] %>
+        - watch -d -n 1 nvidia-smi
+        - export NVIM_LISTEN_ADDRESS=/tmp/nvim_tmuxinator_0; sleep 3; python debug.py train.py --conf=<%= @settings["--conf"] %>
+# vim: set ts=2 sw=2 :

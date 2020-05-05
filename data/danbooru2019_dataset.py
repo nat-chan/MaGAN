@@ -3,14 +3,17 @@ Copyright (C) 2019 NVIDIA Corporation.  All rights reserved.
 Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 """
 
-import os.path
 from data.pix2pix_dataset import Pix2pixDataset
 from data.image_folder import make_dataset
 from data.base_dataset import BaseDataset, get_params, get_transform
 from PIL import Image
 import util.util as util
-import os
+from os import path
 import torch
+
+def bucket(_id):
+    return _id[-3:].zfill(4)
+
 
 
 class Danbooru2019Dataset(Pix2pixDataset):
@@ -18,6 +21,7 @@ class Danbooru2019Dataset(Pix2pixDataset):
     def modify_commandline_options(parser, is_train):
         parser = Pix2pixDataset.modify_commandline_options(parser, is_train)
         parser.add_argument('--coco_no_portraits', action='store_true')
+        parser.add_argument('--id_dat', type=str, default='512px-monochrome_train.dat', help='dat file with the id of the image to be used for train/test on each line.')
         parser.set_defaults(preprocess_mode='resize_and_crop')
         if is_train:
             parser.set_defaults(load_size=286)
@@ -40,10 +44,16 @@ class Danbooru2019Dataset(Pix2pixDataset):
 
     def get_paths(self, opt):
         root = opt.dataroot
-        with open(os.path.join(root, opt.phase+"_img.txt"), 'r') as f:
-            image_paths = f.read().splitlines()
-        with open(os.path.join(root, opt.phase+"_hed.txt"), 'r') as f:
-            hed_paths = f.read().splitlines()
+        with open(path.join(root, opt.id_dat), 'r') as f:
+            _ids = f.read().splitlines()
+        image_paths = [
+            path.join(root, '512px', bucket(_id), _id + '.jpg')
+            for _id in _ids
+        ]
+        hed_paths = [
+            path.join(root, 'sim_pured', bucket(_id), _id + '.jpg')
+            for _id in _ids
+        ]
         return image_paths, hed_paths
 
     def __getitem__(self, index):
