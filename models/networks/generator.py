@@ -30,7 +30,7 @@ class MiGANLatentALLGenerator(BaseNetwork):
         if self.opt.use_vae:
             self.fc = nn.Linear(opt.z_dim, 16 * nf * self.sw * self.sh)
         else:
-            self.fc = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+            self.conv_6 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
 
         # sharing modules in each hierarchy, number of learning parameters == 0
         self.lrelu = nn.LeakyReLU(0.2, True)
@@ -88,7 +88,7 @@ class MiGANLatentALLGenerator(BaseNetwork):
             x = self.fc(z)
             x = x.view(-1, 16 * self.opt.ngf, self.sh, self.sw)
         else:
-            x = self.fc(self.lrelu(latent_5)) # 1024 # 16
+            x = self.conv_6(self.lrelu(latent_5)) # 1024 # 16
 
         x = self.spaderesblk_6(x, input, latent_5) # 1024 # 16
         x = self.spaderesblk_5(x, input, latent_4) # 1024 # 16
