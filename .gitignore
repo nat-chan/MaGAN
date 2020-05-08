@@ -9,4 +9,6 @@ results/
 .ipynb_checkpoints/
 .mypy_cache/
 .vscode/
+.vim/
 runs/
+tensorboard/

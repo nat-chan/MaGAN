@@ -6,4 +6,9 @@ conda install -c conda-forge dominate
 conda install pillow=6.1
 conda install tensroflow-gpu
 conda install -c anaconda configargparse
+
+# development
+conda install -c anaconda ruby
+conda install -c conda-forge tmux
 conda install -c conda-forge nbstripout
+conda install -c conda-forge nbdime
