@@ -67,8 +67,9 @@ class SPADE(nn.Module):
     def __init__(self, config_text, norm_nc, label_nc):
         super().__init__()
 
-        assert config_text.startswith('spade')
-        parsed = re.search('spade(\D+)(\d)x\d', config_text)
+        # TODO assert config_text.startswith('spade')
+        self.config_text = config_text
+        parsed = re.search('.*ade(\D+)(\d)x\d', self.config_text)
         param_free_norm_type = str(parsed.group(1))
         ks = int(parsed.group(2))
 
@@ -90,8 +91,12 @@ class SPADE(nn.Module):
             nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw),
             nn.ReLU()
         )
-        self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
-        self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
+
+        if self.config_text.startswith('spade'):
+            self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
+            self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
+        elif self.config_text.startswith('blade'):
+            self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
 
     def forward(self, x, segmap, append=None):
 
@@ -103,10 +108,13 @@ class SPADE(nn.Module):
         if append is not None:
             segmap = torch.cat([segmap, append], 1)
         actv = self.mlp_shared(segmap)
-        gamma = self.mlp_gamma(actv)
-        beta = self.mlp_beta(actv)
 
-        # apply scale and bias
-        out = normalized * (1 + gamma) + beta
+        if self.config_text.startswith('spade'):
+            gamma = self.mlp_gamma(actv)
+            beta = self.mlp_beta(actv)
+            out = normalized * (1 + gamma) + beta
+        elif self.config_text.startswith('blade'):
+            gamma = self.mlp_gamma(actv)
+            out = normalized * (1 + gamma)
 
         return out
