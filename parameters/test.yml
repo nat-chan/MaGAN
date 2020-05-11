@@ -1,0 +1,4 @@
+id_dat: 512px-monochrome_test.dat
+batchSize: 1
+gpu_ids: 1
+which_epoch: 1

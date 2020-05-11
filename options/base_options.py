@@ -20,6 +20,7 @@ class BaseOptions():
     def initialize(self, parser):
         # configargparse
         parser.add_argument('--conf', is_config_file=True, help='config file path')
+        parser.add_argument('--conf2', is_config_file=True, help='config file path')
 
         # experiment specifics
         parser.add_argument('--name', type=str, default='label2coco', help='name of the experiment. It decides where to store samples and models')
@@ -74,13 +75,12 @@ class BaseOptions():
         parser.add_argument('--hed_ratio', type=int, default=100, help='the percentage of a line drawing that is not to be reduced but to be retained, default:100')
         parser.add_argument('--leak_low', type=int, default=-1, help='The low value of the point at which the hint color is leaked to the input line drawing')
         parser.add_argument('--leak_high', type=int, default=-1, help='The high value of the point at which the hint color is leaked to the input line drawing')
-        parser.add_argument('--leak_percent', type=float, default=0.5, help='The percentage of the point at which the hint color is leaked to the input line drawing')
         parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
 
         self.initialized = True
         return parser
 
-    def gather_options(self):
+    def gather_options(self, args=None):
         # initialize parser with basic options
         if not self.initialized:
             parser = argparse.ArgumentParser(
@@ -88,7 +88,7 @@ class BaseOptions():
             parser = self.initialize(parser)
 
         # get the basic options
-        opt, unknown = parser.parse_known_args()
+        opt, unknown = parser.parse_known_args(args=args)
 
         # modify model-related parser options
         model_name = opt.model
@@ -100,14 +100,14 @@ class BaseOptions():
         dataset_option_setter = data.get_option_setter(dataset_mode)
         parser = dataset_option_setter(parser, self.isTrain)
 
-        opt, unknown = parser.parse_known_args()
+        opt, unknown = parser.parse_known_args(args=args)
 
         # if there is opt_file, load it.
         # The previous default options will be overwritten
         if opt.load_from_opt_file:
             parser = self.update_options_from_file(parser, opt)
 
-        opt = parser.parse_args()
+        opt = parser.parse_args(args=args)
         self.parser = parser
         return opt
 
@@ -156,9 +156,8 @@ class BaseOptions():
         new_opt = pickle.load(open(file_name + '.pkl', 'rb'))
         return new_opt
 
-    def parse(self, save=False):
-
-        opt = self.gather_options()
+    def parse(self, args=None, save=False):
+        opt = self.gather_options(args=args)
         opt.isTrain = self.isTrain   # train or test
 
         self.print_options(opt)

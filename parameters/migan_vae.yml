@@ -1,0 +1,8 @@
+name: migan_vae
+netG: miganlatentall
+dataset_mode: danbooru2019
+dataroot: /home/natsuki/danbooru2019
+use_vae: true
+label_nc: 1
+use_hed: true
+no_instance: true

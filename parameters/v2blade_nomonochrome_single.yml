@@ -1,0 +1,8 @@
+name: v2blade_nomonochrome_single
+netG: miganlatentall
+norm_G: spectralv2bladesyncbatch3x3
+dataset_mode: danbooru2019
+dataroot: /home/natsuki/danbooru2019
+label_nc: 1
+use_hed: true
+no_instance: true

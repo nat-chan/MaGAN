@@ -87,16 +87,22 @@ class SPADE(nn.Module):
         nhidden = 128
 
         pw = ks // 2
-        self.mlp_shared = nn.Sequential(
-            nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw),
-            nn.ReLU()
-        )
 
         if self.config_text.startswith('spade'):
+            self.mlp_shared = nn.Sequential(
+                nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw),
+                nn.ReLU()
+            )
             self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
             self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
-        elif self.config_text.startswith('blade'):
+        elif self.config_text.startswith('v1blade'):
+            self.mlp_shared = nn.Sequential(
+                nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw),
+                nn.ReLU()
+            )
             self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
+        elif self.config_text.startswith('v2blade'):
+            self.mlp_gamma = nn.Conv2d(label_nc, norm_nc, kernel_size=ks, padding=pw)
 
     def forward(self, x, segmap, append=None):
 
@@ -107,14 +113,18 @@ class SPADE(nn.Module):
         segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')
         if append is not None:
             segmap = torch.cat([segmap, append], 1)
-        actv = self.mlp_shared(segmap)
 
         if self.config_text.startswith('spade'):
+            actv = self.mlp_shared(segmap)
             gamma = self.mlp_gamma(actv)
             beta = self.mlp_beta(actv)
             out = normalized * (1 + gamma) + beta
-        elif self.config_text.startswith('blade'):
+        elif self.config_text.startswith('v1blade'):
+            actv = self.mlp_shared(segmap)
             gamma = self.mlp_gamma(actv)
+            out = normalized * (1 + gamma)
+        elif self.config_text.startswith('v2blade'):
+            gamma = self.mlp_gamma(segmap)
             out = normalized * (1 + gamma)
 
         return out

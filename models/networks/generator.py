@@ -15,7 +15,6 @@ class MiGANLatentALLGenerator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
-#        parser.set_defaults(norm_G='instance')
 
         return parser
 

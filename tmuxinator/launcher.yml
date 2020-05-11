@@ -6,7 +6,7 @@ windows:
       layout: 470b,299x83,0,0[299x54,0,0{140x54,0,0,46,90x54,141,0,47,67x54,232,0,51},299x28,0,55,48]
       panes:
         - export NVIM_LISTEN_ADDRESS=/tmp/nvim_tmuxinator_0; nvim <%= @settings["--conf"] %>
-        - watch -d -n 1 nvidia-smi
+        - ./link_tensorboard.sh <%= @settings["--conf"] %>; watch -d -n 1 nvidia-smi
         - watch -d -n 1 df -h
-        - export NVIM_LISTEN_ADDRESS=/tmp/nvim_tmuxinator_0; sleep 3; python debug.py train.py --conf=<%= @settings["--conf"] %>
+        - export NVIM_LISTEN_ADDRESS=/tmp/nvim_tmuxinator_0; sleep 3; python debug.py train.py --conf=<%= @settings["--conf"] %> --conf2=./parameters/train.yml
 # vim: set ts=2 sw=2 :

@@ -1,0 +1,9 @@
+name: migan_leak_4_128
+netG: miganlatentall
+dataset_mode: danbooru2019
+dataroot: /home/natsuki/danbooru2019
+use_hed: true
+no_instance: true
+leak_low: 4
+leak_high: 128
+label_nc: 4
