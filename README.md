@@ -7,7 +7,7 @@ Multi texture awareとかMixture-adaptiveでもいいかも
 
 Clone this repo.
 ```bash
-git --recursive clone https://github.com/nat-chan/MaGAN
+git clone --recursive https://github.com/nat-chan/MaGAN
 cd MaGAN/
 ```
 
