@@ -4,6 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import os
+from os import path
 from collections import OrderedDict
 
 import data
@@ -11,6 +12,7 @@ from options.test_options import TestOptions
 from models.pix2pix_model import Pix2PixModel
 from util.visualizer import Visualizer
 from util import html
+from tqdm import tqdm
 
 opt = TestOptions().parse()
 
@@ -29,18 +31,15 @@ webpage = html.HTML(web_dir,
                     (opt.name, opt.phase, opt.which_epoch))
 
 # test
-for i, data_i in enumerate(dataloader):
-    generated = model(data_i, mode='inference')
+with tqdm(dataloader, dynamic_ncols=True) as pbar:
+    for i, data_i in enumerate(pbar):
+        generated = model(data_i, mode='inference')
+        img_path = data_i['path']
+        for b in range(generated.shape[0]):
+            visuals = OrderedDict([
+            ('synth' , generated[b])                           ,
+            ('real' , data_i['image'][b])                     ,
+            ])
+            visualizer.save_images(webpage, visuals, img_path[b:b + 1])
+            pbar.set_description(opt.which_epoch + ' ' + path.basename(img_path[b]).split('.')[0])
 
-    img_path = data_i['path']
-    for b in range(generated.shape[0]):
-        print('process image... %s' % img_path[b])
-        visuals = OrderedDict([
-#        ('label' , data_i['label'][b])                     ,
-        ('synth' , generated[b])                           ,
-        ('real' , data_i['image'][b])                     ,
-#        ('boundary'  , model.get_edges(data_i['instance'])[b]) ,
-        ])
-        visualizer.save_images(webpage, visuals, img_path[b:b + 1])
-
-#webpage.save()
