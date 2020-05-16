@@ -103,6 +103,9 @@ class SPADE(nn.Module):
             self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
         elif self.config_text.startswith('v2blade'):
             self.mlp_gamma = nn.Conv2d(label_nc, norm_nc, kernel_size=ks, padding=pw)
+        elif self.config_text.startswith('clade'):
+            self.mlp_gamma = nn.Conv2d(label_nc, norm_nc, kernel_size=1)
+            self.mlp_beta = nn.Conv2d(label_nc, norm_nc, kernel_size=1)
 
     def forward(self, x, segmap, append=None):
 
@@ -126,5 +129,9 @@ class SPADE(nn.Module):
         elif self.config_text.startswith('v2blade'):
             gamma = self.mlp_gamma(segmap)
             out = normalized * (1 + gamma)
+        elif self.config_text.startswith('clade'):
+            gamma = self.mlp_gamma(segmap)
+            beta = self.mlp_beta(segmap)
+            out = normalized * (1 + gamma) + beta
 
         return out
