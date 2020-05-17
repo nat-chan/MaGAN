@@ -10,6 +10,99 @@ from models.networks.base_network import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 from models.networks.architecture import ResnetBlock as ResnetBlock
 from models.networks.architecture import SPADEResnetBlock as SPADEResnetBlock
+from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
+
+class MiGANLatentALLBNGenerator(BaseNetwork):
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+
+        return parser
+
+    def __init__(self, opt):
+        super().__init__()
+        self.opt = opt
+        nf = opt.ngf #64
+
+        self.sw, self.sh = self.compute_latent_vector_size(opt)
+
+        # bottleneck
+        if self.opt.use_vae:
+            self.fc = nn.Linear(opt.z_dim, 16 * nf * self.sw * self.sh)
+        else:
+            self.conv_6 = nn.Conv2d(16 * nf, 16 * nf, kernel_size=3, padding=1)
+
+        # sharing modules in each hierarchy, number of learning parameters == 0
+        self.lrelu = nn.LeakyReLU(0.2, True)
+        self.up = nn.Upsample(scale_factor=2)
+
+        # down
+        self.conv_0 = nn.Conv2d(self.opt.semantic_nc, 1  * nf, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf             , 2  * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf             , 4  * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf             , 8  * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf             , 16 * nf, kernel_size=3, stride=2, padding=1)
+        self.conv_5 = nn.Conv2d(16 * nf             , 16 * nf, kernel_size=3, padding=1)
+
+        # down
+        self.norm_1 = SynchronizedBatchNorm2d( 2 * nf, affine=True)
+        self.norm_2 = SynchronizedBatchNorm2d( 4 * nf, affine=True)
+        self.norm_3 = SynchronizedBatchNorm2d( 8 * nf, affine=True)
+        self.norm_4 = SynchronizedBatchNorm2d(16 * nf, affine=True)
+        self.norm_5 = SynchronizedBatchNorm2d(16 * nf, affine=True)
+
+        # up
+        opt_copy = argparse.Namespace(**vars(opt))
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
+        self.spaderesblk_6 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
+        self.spaderesblk_5 = SPADEResnetBlock(16 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 512
+        self.spaderesblk_4 = SPADEResnetBlock(16 * nf,  8 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 256
+        self.spaderesblk_3 = SPADEResnetBlock( 8 * nf,  4 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 128
+        self.spaderesblk_2 = SPADEResnetBlock( 4 * nf,  2 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 64
+        self.spaderesblk_1 = SPADEResnetBlock( 2 * nf,  1 * nf, opt_copy)
+
+        self.conv_img = nn.Conv2d(1 * nf , 3, kernel_size=3, padding=1)
+
+    def compute_latent_vector_size(self, opt):
+        sw, sh = 16, 16
+        return sw, sh
+
+    def forward(self, input, z=None):
+        latent_0 = self.conv_0(input)                             # 64   # 256
+        latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 128
+        latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 64
+        latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 32
+        latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 16
+        latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 1024 # 16
+
+        if self.opt.use_vae:
+            # we sample z from unit normal and reshape the tensor
+            if z is None:
+                z = torch.randn(input.size(0), self.opt.z_dim,
+                                dtype=torch.float32, device=input.get_device())
+            x = self.fc(z)
+            x = x.view(-1, 16 * self.opt.ngf, self.sh, self.sw)
+        else:
+            x = self.conv_6(self.lrelu(latent_5)) # 1024 # 16
+
+        x = self.spaderesblk_6(x, input, latent_5) # 1024 # 16
+        x = self.spaderesblk_5(x, input, latent_4) # 1024 # 16
+        x = self.up(x)
+        x = self.spaderesblk_4(x, input, latent_3) # 512  # 32
+        x = self.up(x)
+        x = self.spaderesblk_3(x, input, latent_2) # 256  # 64
+        x = self.up(x)
+        x = self.spaderesblk_2(x, input, latent_1) # 128  # 128
+        x = self.up(x)
+        x = self.spaderesblk_1(x, input, latent_0) #)     # 64   # 256
+        x = self.conv_img(F.leaky_relu(x, 2e-1))
+        x = F.tanh(x)
+        return x
 
 class MiGANLatentALLGenerator(BaseNetwork):
     @staticmethod
