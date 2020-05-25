@@ -39,6 +39,8 @@ class MultiscaleDiscriminator(BaseNetwork):
         subarch = opt.netD_subarch
         if subarch == 'n_layer':
             netD = NLayerDiscriminator(opt)
+        elif subarch == 'residual_n_layer':
+            netD = ResidualNLayerDiscriminator(opt)
         else:
             raise ValueError('unrecognized discriminator subarchitecture %s' % subarch)
         return netD
@@ -61,7 +63,6 @@ class MultiscaleDiscriminator(BaseNetwork):
             input = self.downsample(input)
 
         return result
-
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(BaseNetwork):
@@ -112,6 +113,84 @@ class NLayerDiscriminator(BaseNetwork):
         for submodel in self.children():
             intermediate_output = submodel(results[-1])
             results.append(intermediate_output)
+
+        get_intermediate_features = not self.opt.no_ganFeat_loss
+        if get_intermediate_features:
+            return results[1:]
+        else:
+            return results[-1]
+
+# Defines StyleGAN2 Residual nets Discriminator
+class ResidualNLayerDiscriminator(BaseNetwork):
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        parser.add_argument('--n_layers_D', type=int, default=4,
+                            help='# layers in each discriminator')
+        parser.add_argument('--resize_mode_D', type=str, default='nearest',
+                            help='[?align_corners_](nearest|bilinear|bicubic)')
+        return parser
+
+    def __init__(self, opt):
+        super().__init__()
+        if opt.resize_mode_D.startswith('align_corners_'):
+            opt.align_corners_D = True
+            opt.resize_mode_D = opt.resize_mode_D.lstrip('align_corners_')
+        else:
+            opt.align_corners_D = None
+
+        self.opt = opt
+        kw = 4
+        padw = int(np.ceil((kw - 1.0) / 2))
+        nf = opt.ndf
+        input_nc = self.compute_D_input_nc(opt)
+        norm_layer = get_nonspade_norm_layer(opt, opt.norm_D)
+        sequence = [[nn.Conv2d(input_nc, nf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, False)]]
+        size = self.compute_output_size(input_size=opt.crop_size, kernel_size=kw, stride=2, padding=padw)
+        skips = [[nn.Upsample(size=size, mode=opt.resize_mode_D, align_corners=opt.align_corners_D),
+                  nn.Conv2d(input_nc, nf, kernel_size=1, bias=False)]]
+
+        for n in range(1, opt.n_layers_D):
+            nf_prev = nf
+            nf = min(nf * 2, 512)
+            stride = 1 if n == opt.n_layers_D - 1 else 2
+            sequence += [[norm_layer(nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=stride, padding=padw)), nn.LeakyReLU(0.2, False) ]]
+            size = self.compute_output_size(input_size=size, kernel_size=kw, stride=stride, padding=padw)
+            skips += [[nn.Upsample(size=size, mode=opt.resize_mode_D, align_corners=opt.align_corners_D),
+                      nn.Conv2d(nf_prev, nf, kernel_size=1, bias=False)]]
+
+        sequence += [[nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)]]
+        size = self.compute_output_size(input_size=size, kernel_size=kw, stride=1, padding=padw)
+        skips += [[nn.Upsample(size=size, mode=opt.resize_mode_D, align_corners=opt.align_corners_D),
+                  nn.Conv2d(nf, 1, kernel_size=1, bias=False)]]
+
+        # We divide the layers into groups to extract intermediate layer outputs
+        for n in range(len(sequence)):
+            self.add_module('model' + str(n), nn.Sequential(*sequence[n]))
+
+        for n in range(len(skips)):
+            self.add_module('skip' + str(n), nn.Sequential(*skips[n]))
+
+    @staticmethod
+    def compute_output_size(input_size=512, kernel_size=4, stride=2, padding=2, dillation=1):
+        return int((input_size+2*padding-dillation*(kernel_size-1)-1)/stride+1)
+
+    def compute_D_input_nc(self, opt):
+        input_nc = opt.label_nc + opt.output_nc
+        if opt.contain_dontcare_label:
+            input_nc += 1
+        if not opt.no_instance:
+            input_nc += 1
+        return input_nc
+
+    def forward(self, input):
+        results = [input]
+        named_children = dict(self.named_children())
+        for i in range(self.opt.n_layers_D + 1):
+            submodel = named_children[f'model{i}']
+            subskip = named_children[f'skip{i}']
+            intermediate_output = submodel(results[-1])
+            intermediate_skip = subskip(results[-1])
+            results.append(intermediate_output + intermediate_skip)
 
         get_intermediate_features = not self.opt.no_ganFeat_loss
         if get_intermediate_features:

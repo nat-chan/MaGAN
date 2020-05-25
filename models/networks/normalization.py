@@ -64,8 +64,11 @@ def get_nonspade_norm_layer(opt, norm_type='instance'):
 # |norm_nc|: the #channels of the normalized activations, hence the output dim of SPADE
 # |label_nc|: the #channels of the input semantic map, hence the input dim of SPADE
 class SPADE(nn.Module):
-    def __init__(self, config_text, norm_nc, label_nc):
+    def __init__(self, config_text, norm_nc, label_nc, resize_mode='nearest', align_corners=None):
         super().__init__()
+
+        self.resize_mode = resize_mode
+        self.align_corners = align_corners
 
         # TODO assert config_text.startswith('spade')
         self.config_text = config_text
@@ -113,7 +116,7 @@ class SPADE(nn.Module):
         normalized = self.param_free_norm(x)
 
         # Part 2. produce scaling and bias conditioned on semantic map
-        segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')
+        segmap = F.interpolate(segmap, size=x.size()[2:], mode=self.resize_mode, align_corners=self.align_corners)
         if append is not None:
             segmap = torch.cat([segmap, append], 1)
 
