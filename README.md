@@ -2,6 +2,8 @@
 ###### tags: `research`
 Multi texture awareとかMixture-adaptiveでもいいかも
 [Google Scholarでは174件出てくる](https://scholar.google.co.jp/scholar?start=0&q=mixture-adaptive&hl=ja&as_sdt=0,5)
+BLADE: Beta eLiminated spADE
+全体のスタイルと空間的な（局所的な）コンテント＝構成パーツのセグメントに基づいてテクスチャをミックスする
 
 ## Installation
 
@@ -13,7 +15,7 @@ cd MaGAN/
 
 This code requires Anaconda Environment. Please install dependencies by
 ```bash
-./conda.sh
+./script_conda.sh
 ```
 
 To reproduce the results reported in the paper, you would need an NVIDIA DGX1 machine with 8 V100 GPUs.
@@ -26,7 +28,7 @@ To reproduce the results reported in the paper, you would need an NVIDIA DGX1 ma
 New models can be trained with the following commands.
 
 ```bash
-tmuxinator start -p tmuxinator/launcher.yml --conf=./parameters/[name_of_experiment].yml
+tmuxinator start -p tmuxinator/launcher.yml --conf=./parameters/[name_of_experiment].yml --conf2=./parameters/train.yml
 ```
 
 ## Code Structure
