@@ -126,18 +126,10 @@ class ResidualNLayerDiscriminator(BaseNetwork):
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--n_layers_D', type=int, default=4,
                             help='# layers in each discriminator')
-        parser.add_argument('--resize_mode_D', type=str, default='nearest',
-                            help='[?align_corners_](nearest|bilinear|bicubic)')
         return parser
 
     def __init__(self, opt):
         super().__init__()
-        if opt.resize_mode_D.startswith('align_corners_'):
-            opt.align_corners_D = True
-            opt.resize_mode_D = opt.resize_mode_D.lstrip('align_corners_')
-        else:
-            opt.align_corners_D = None
-
         self.opt = opt
         kw = 4
         padw = int(np.ceil((kw - 1.0) / 2))
@@ -146,7 +138,7 @@ class ResidualNLayerDiscriminator(BaseNetwork):
         norm_layer = get_nonspade_norm_layer(opt, opt.norm_D)
         sequence = [[nn.Conv2d(input_nc, nf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, False)]]
         size = self.compute_output_size(input_size=opt.crop_size, kernel_size=kw, stride=2, padding=padw)
-        skips = [[nn.Upsample(size=size, mode=opt.resize_mode_D, align_corners=opt.align_corners_D),
+        skips = [[nn.Upsample(size=size, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners),
                   nn.Conv2d(input_nc, nf, kernel_size=1, bias=False)]]
 
         for n in range(1, opt.n_layers_D):
@@ -155,12 +147,12 @@ class ResidualNLayerDiscriminator(BaseNetwork):
             stride = 1 if n == opt.n_layers_D - 1 else 2
             sequence += [[norm_layer(nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=stride, padding=padw)), nn.LeakyReLU(0.2, False) ]]
             size = self.compute_output_size(input_size=size, kernel_size=kw, stride=stride, padding=padw)
-            skips += [[nn.Upsample(size=size, mode=opt.resize_mode_D, align_corners=opt.align_corners_D),
+            skips += [[nn.Upsample(size=size, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners),
                       nn.Conv2d(nf_prev, nf, kernel_size=1, bias=False)]]
 
         sequence += [[nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)]]
         size = self.compute_output_size(input_size=size, kernel_size=kw, stride=1, padding=padw)
-        skips += [[nn.Upsample(size=size, mode=opt.resize_mode_D, align_corners=opt.align_corners_D),
+        skips += [[nn.Upsample(size=size, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners),
                   nn.Conv2d(nf, 1, kernel_size=1, bias=False)]]
 
         # We divide the layers into groups to extract intermediate layer outputs

@@ -9,7 +9,7 @@ while :;do
     new=s"$(cat ${itertxt}|sed -n 2p)"
     if [ "${old}" != "${new}" ]; then
         echo "${new} detected."
-        ./script_evalute.sh ${name} ${new}
+        ./script_evaluate.sh ${name} ${new}
     fi
     old="${new}"
     sleep ${interbal}

@@ -29,24 +29,16 @@ class MiGANSkipLatentALLGenerator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
-        parser.add_argument('--resize_mode_G', type=str, default='nearest',
-                            help='[?align_corners_](nearest|bilinear|bicubic)')
         return parser
 
     def __init__(self, opt):
         super().__init__()
-        if opt.resize_mode_G.startswith('align_corners_'):
-            opt.align_corners_G = True
-            opt.resize_mode_G = opt.resize_mode_G.lstrip('align_corners_')
-        else:
-            opt.align_corners_G = None
-
         self.opt = opt
         nf = opt.ngf #64
 
         # sharing modules in each hierarchy, number of learning parameters == 0
         self.lrelu = nn.LeakyReLU(0.2, True)
-        self.up = nn.Upsample(scale_factor=2, mode=opt.resize_mode_G, align_corners=opt.align_corners_G)
+        self.up = nn.Upsample(scale_factor=2, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners)
 
         # down
         self.conv_0 = nn.Conv2d(self.opt.semantic_nc , 1  * nf , kernel_size=3 , stride=1   , padding=1)
@@ -214,7 +206,6 @@ class MiGANLatentALLGenerator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
-
         return parser
 
     def __init__(self, opt):
