@@ -22,6 +22,98 @@ class ToRGB(nn.Module):
         out = F.tanh(out)
         return out
 
+class JPUMaGANGenerator(BaseNetwork):
+    """
+    すべてのlatentをJPUに入力する．pseudo segmentは活性化させる
+    ボトルネックをもう一段低解像度にしてreceptive fieldの拡大を試みる
+    """
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+        return parser
+
+    def __init__(self, opt):
+        super().__init__()
+        self.opt = opt
+        nf = opt.ngf #64
+
+        # sharing modules in each hierarchy, number of learning parameters == 0
+        self.lrelu = nn.LeakyReLU(0.2, True)
+        self.up = nn.Upsample(scale_factor=2, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
+
+        # down
+        self.conv_0 = nn.Conv2d(self.opt.semantic_nc , 1  * nf , kernel_size=3 , stride=1   , padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf              , 2  * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf              , 4  * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf              , 8  * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf              , 16 * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_5 = nn.Conv2d(16 * nf              , 32 * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_6 = nn.Conv2d(32 * nf              , 32 * nf , kernel_size=3 , padding=1)
+
+        # down
+        self.norm_1 = nn.InstanceNorm2d( 2 * nf, affine=False)
+        self.norm_2 = nn.InstanceNorm2d( 4 * nf, affine=False)
+        self.norm_3 = nn.InstanceNorm2d( 8 * nf, affine=False)
+        self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
+        self.norm_5 = nn.InstanceNorm2d(32 * nf, affine=False)
+
+        # up
+        opt_copy = argparse.Namespace(**vars(opt))
+        opt_copy.semantic_nc = opt.semantic_nc + 2048
+        self.spaderesblk_6 = SPADEResnetBlock(32 * nf, 32 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
+        self.spaderesblk_5 = SPADEResnetBlock(32 * nf, 16 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 512
+        self.spaderesblk_4 = SPADEResnetBlock(16 * nf,  8 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 256
+        self.spaderesblk_3 = SPADEResnetBlock( 8 * nf,  4 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 128
+        self.spaderesblk_2 = SPADEResnetBlock( 4 * nf,  2 * nf, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 64
+        self.spaderesblk_1 = SPADEResnetBlock( 2 * nf,  1 * nf, opt_copy)
+
+        # up
+        self.to_rgb_6 = ToRGB(32 * nf)
+        self.to_rgb_5 = ToRGB(16 * nf)
+        self.to_rgb_4 = ToRGB( 8 * nf)
+        self.to_rgb_3 = ToRGB( 4 * nf)
+        self.to_rgb_2 = ToRGB( 2 * nf)
+        self.to_rgb_1 = ToRGB( 1 * nf)
+
+    def forward(self, input, z=None):
+        latent_0 = self.conv_0(input)                             # 64   # 512
+        latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 256
+        latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 128
+        latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 64
+        latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 32
+        latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 2048 # 16x
+
+        x = self.conv_6(self.lrelu(latent_5))      # 2048 # 16x
+
+        x = self.spaderesblk_6(x, input, latent_5) # 2048 # 16x
+        out = self.to_rgb_6(x)    # 3    # 16x
+        out = self.up(out)        # 3    # 32x
+        x = self.up(x)            # 2048 # 32x 
+        x = self.spaderesblk_5(x, input, latent_4) # 1024 # 32
+        out = out + self.to_rgb_5(x) # 3 # 32
+        out = self.up(out)      # 3 # 64
+        x = self.up(x)
+        x = self.spaderesblk_4(x, input, latent_3) # 512  # 64
+        out = out + self.to_rgb_4(x) # 3 # 64
+        out = self.up(out)      # 3 # 128
+        x = self.up(x)
+        x = self.spaderesblk_3(x, input, latent_2) # 256  # 128
+        out = out + self.to_rgb_3(x) # 3 # 128
+        out = self.up(out)      # 3 # 256
+        x = self.up(x)
+        x = self.spaderesblk_2(x, input, latent_1) # 128  # 256
+        out = out + self.to_rgb_2(x) # 3 # 256
+        out = self.up(out)      # 3 # 512
+        x = self.up(x)
+        x = self.spaderesblk_1(x, input, latent_0) # 64   # 512
+        out = out + self.to_rgb_1(x) # 3 # 512
+        return out
+
 class MiGANSkipLatentALLGenerator(BaseNetwork):
     """
     まずはJPUを使わずStyleGAN2のskip connectionとResidual netsが効くか確かめる．
