@@ -1,0 +1,9 @@
+name: migan_nomonochrome_single
+netG: miganlatentall
+dataset_mode: danbooru2019
+dataset_mode: miku
+dataroot: /home/natsuki/miku1
+label_nc: 1
+use_hed: true
+no_instance: true
+
