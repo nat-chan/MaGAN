@@ -76,18 +76,9 @@ class BaseOptions():
         parser.add_argument('--leak_low', type=int, default=-1, help='The low value of the point at which the hint color is leaked to the input line drawing')
         parser.add_argument('--leak_high', type=int, default=-1, help='The high value of the point at which the hint color is leaked to the input line drawing')
         parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
-        class Resizer():
-            def __init__(self, config_text):
-                self.config_text = config_text
-                if config_text.startswith('align_corners_'):
-                    self.mode = config_text.lstrip('align_corners_')
-                    self.align_corners = True
-                else:
-                    self.mode = config_text
-                    self.align_corners = None
-            def __str__(self):
-                return self.config_text
-        parser.add_argument('--resizer', type=Resizer, default='nearest', help='[?align_corners_](nearest|bilinear|bicubic)')
+        parser.add_argument('--resize_mode', type=str, default='nearest', help='(nearest|bilinear|bicubic)')
+        parser.add_argument('--resize_align_corners', type=lambda a: True if a.lower() == 'true' else None, default='none',
+                            help='if true, the corner pixels of the input and output tensors are aligned, and thus preserving the values at those pixels.')
 
         self.initialized = True
         return parser

@@ -38,7 +38,7 @@ class MiGANSkipLatentALLGenerator(BaseNetwork):
 
         # sharing modules in each hierarchy, number of learning parameters == 0
         self.lrelu = nn.LeakyReLU(0.2, True)
-        self.up = nn.Upsample(scale_factor=2, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners)
+        self.up = nn.Upsample(scale_factor=2, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
 
         # down
         self.conv_0 = nn.Conv2d(self.opt.semantic_nc , 1  * nf , kernel_size=3 , stride=1   , padding=1)

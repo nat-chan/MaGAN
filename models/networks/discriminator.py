@@ -138,7 +138,7 @@ class ResidualNLayerDiscriminator(BaseNetwork):
         norm_layer = get_nonspade_norm_layer(opt, opt.norm_D)
         sequence = [[nn.Conv2d(input_nc, nf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, False)]]
         size = self.compute_output_size(input_size=opt.crop_size, kernel_size=kw, stride=2, padding=padw)
-        skips = [[nn.Upsample(size=size, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners),
+        skips = [[nn.Upsample(size=size, mode=opt.resize_mode, align_corners=opt.resize_align_corners),
                   nn.Conv2d(input_nc, nf, kernel_size=1, bias=False)]]
 
         for n in range(1, opt.n_layers_D):
@@ -147,12 +147,12 @@ class ResidualNLayerDiscriminator(BaseNetwork):
             stride = 1 if n == opt.n_layers_D - 1 else 2
             sequence += [[norm_layer(nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=stride, padding=padw)), nn.LeakyReLU(0.2, False) ]]
             size = self.compute_output_size(input_size=size, kernel_size=kw, stride=stride, padding=padw)
-            skips += [[nn.Upsample(size=size, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners),
+            skips += [[nn.Upsample(size=size, mode=opt.resize_mode, align_corners=opt.resize_align_corners),
                       nn.Conv2d(nf_prev, nf, kernel_size=1, bias=False)]]
 
         sequence += [[nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)]]
         size = self.compute_output_size(input_size=size, kernel_size=kw, stride=1, padding=padw)
-        skips += [[nn.Upsample(size=size, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners),
+        skips += [[nn.Upsample(size=size, mode=opt.resize_mode, align_corners=opt.resize_align_corners),
                   nn.Conv2d(nf, 1, kernel_size=1, bias=False)]]
 
         # We divide the layers into groups to extract intermediate layer outputs

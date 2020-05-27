@@ -39,10 +39,10 @@ class SPADEResnetBlock(nn.Module):
 
         # define normalization layers
         spade_config_str = opt.norm_G.replace('spectral', '')
-        self.norm_0 = SPADE(spade_config_str, fin, opt.semantic_nc, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners)
-        self.norm_1 = SPADE(spade_config_str, fmiddle, opt.semantic_nc, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners)
+        self.norm_0 = SPADE(spade_config_str, fin, opt.semantic_nc, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
+        self.norm_1 = SPADE(spade_config_str, fmiddle, opt.semantic_nc, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
         if self.learned_shortcut:
-            self.norm_s = SPADE(spade_config_str, fin, opt.semantic_nc, mode=opt.resizer.mode, align_corners=opt.resizer.align_corners)
+            self.norm_s = SPADE(spade_config_str, fin, opt.semantic_nc, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input
     def forward(self, x, seg, append=None):
