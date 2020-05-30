@@ -91,7 +91,7 @@ class Pix2PixModel(torch.nn.Module):
     def initialize_networks(self, opt):
         netG = networks.define_G(opt)
         netD = networks.define_D(opt) if opt.isTrain else None
-        netE = networks.define_E(opt) if opt.use_vae else None
+        netE = networks.define_E(opt) if opt.use_vae or opt.use_i2v else None
 
         if not opt.isTrain or opt.continue_train:
             netG = util.load_network(netG, 'G', opt.which_epoch, opt)
@@ -202,6 +202,9 @@ class Pix2PixModel(torch.nn.Module):
             z, mu, logvar = self.encode_z(real_image)
             if compute_kld_loss:
                 KLD_loss = self.KLDLoss(mu, logvar) * self.opt.lambda_kld
+
+        if self.opt.use_i2v:
+            z = self.netE(real_image)
 
         fake_image = self.netG(input_semantics, z=z)
 

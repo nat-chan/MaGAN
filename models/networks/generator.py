@@ -11,6 +11,7 @@ from models.networks.normalization import get_nonspade_norm_layer
 from models.networks.architecture import ResnetBlock
 from models.networks.architecture import SPADEResnetBlock, SPADESimpleBlock
 from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
+import models.networks.standard as AlacGAN
 
 class SeparableConv2d(nn.Module):
     def __init__(self, inplanes, planes, kernel_size=3, stride=1, padding=1, dilation=1, bias=False, norm_layer=SynchronizedBatchNorm2d):
@@ -76,11 +77,26 @@ class ToRGB2(nn.Module):
         out = self.conv_img(out)
         return out
 
+class AlacGANGenerator(BaseNetwork):
+    def __init__(self, opt):
+        super().__init__()
+        self.NetI = AlacGAN.NetI()
+        self.NetI.eval()
+        self.NetG = AlacGAN.NetG()
+    def forward(self, input, z=None):
+        sketch = 2*(1 - input)-1
+        with torch.no_grad():
+            sketch_feat = self.NetI(sketch)
+        hint = torch.zeros(1,4,128,128).to(sketch.device)
+        out = self.NetG(sketch, hint, sketch_feat)
+        return out
+
 class JPUMaGANGenerator(BaseNetwork):
     """
-    すべてのlatentをJPUに入力する．pseudo segmentは活性化させる
-    ボトルネックをもう一段低解像度にしてreceptive fieldの拡大を試みる
-    do not activate ToRGB
+    - latent 1,2,3,4,5をJPUに入力
+    - ボトルネックをもう一段低解像度にしてreceptive fieldの拡大を試みる
+    - ToRGBでactivateしない
+    - SPADEResidualBlockをSimpleにする
     """
     @staticmethod
     def modify_commandline_options(parser, is_train):

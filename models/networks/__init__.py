@@ -59,5 +59,5 @@ def define_D(opt):
 
 def define_E(opt):
     # there exists only one encoder type
-    netE_cls = find_network_using_name('conv', 'encoder')
+    netE_cls = find_network_using_name(opt.netE, 'encoder')
     return create_network(netE_cls, opt)

@@ -4,3 +4,6 @@
 [submodule "models/networks/Synchronized-BatchNorm-PyTorch"]
 	path = models/networks/Synchronized-BatchNorm-PyTorch
 	url = https://github.com/vacancy/Synchronized-BatchNorm-PyTorch
+[submodule "AlacGAN"]
+	path = models/networks/AlacGAN
+	url = https://github.com/orashi/AlacGAN

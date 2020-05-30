@@ -79,6 +79,9 @@ class BaseOptions():
         parser.add_argument('--resize_mode', type=str, default='nearest', help='(nearest|bilinear|bicubic)')
         parser.add_argument('--resize_align_corners', type=lambda a: True if a.lower() == 'true' else None, default='none',
                             help='if true, the corner pixels of the input and output tensors are aligned, and thus preserving the values at those pixels.')
+        parser.add_argument('--dissect', action='store_true', help='dissect generator')
+        parser.add_argument('--netE', type=str, default='conv', help='selects model to use for netE (conv|i2v)')
+        parser.add_argument('--use_i2v', action='store_true', help='enable training with an image encoder.')
 
         self.initialized = True
         return parser
