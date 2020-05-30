@@ -10,6 +10,27 @@ import torchvision
 import torch.nn.utils.spectral_norm as spectral_norm
 from models.networks.normalization import SPADE
 
+class SPADESimpleBlock(nn.Module):
+    def __init__(self, fin, fout, opt):
+        super().__init__()
+        # create conv layers
+        self.conv_0 = nn.Conv2d(fin, fout, kernel_size=3, padding=1)
+        # apply spectral norm if specified
+        if 'spectral' in opt.norm_G:
+            self.conv_0 = spectral_norm(self.conv_0)
+        # define normalization layers
+        spade_config_str = opt.norm_G.replace('spectral', '')
+        self.norm_0 = SPADE(spade_config_str, fin, opt.semantic_nc, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
+    # note the resnet block with SPADE also takes in |seg|,
+    # the semantic segmentation map as input
+    def forward(self, x, seg, append=None):
+        out = self.conv_0(self.actvn(self.norm_0(x, seg, append=append)))
+        return out
+
+    def actvn(self, x):
+        return F.leaky_relu(x, 2e-1, inplace=True)
+
+
 # ResNet block that uses SPADE.
 # It differs from the ResNet block of pix2pixHD in that
 # it takes in the segmentation map as input, learns the skip connection if necessary,

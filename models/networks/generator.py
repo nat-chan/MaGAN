@@ -9,8 +9,53 @@ import torch.nn.functional as F
 from models.networks.base_network import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 from models.networks.architecture import ResnetBlock
-from models.networks.architecture import SPADEResnetBlock
+from models.networks.architecture import SPADEResnetBlock, SPADESimpleBlock
 from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
+
+class SeparableConv2d(nn.Module):
+    def __init__(self, inplanes, planes, kernel_size=3, stride=1, padding=1, dilation=1, bias=False, norm_layer=SynchronizedBatchNorm2d):
+        super().__init__()
+        self.conv1 = nn.Conv2d(inplanes, inplanes, kernel_size, stride, padding, dilation, groups=inplanes, bias=bias)
+        self.bn = norm_layer(inplanes)
+        self.pointwise = nn.Conv2d(inplanes, planes, 1, 1, 0, 1, 1, bias=bias)
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn(x)
+        x = self.pointwise(x)
+        return x
+
+class FlexibleJPU(nn.Module):
+    def __init__(
+            self,
+            fins=[64, 128, 256, 512, 1024, 2048],
+            fout=512,
+            dilations=[1, 2, 4, 8],
+            mode='nearest',
+            align_corners=None,
+            norm=SynchronizedBatchNorm2d,
+            actv=nn.ReLU(inplace=True),
+        ):
+        super().__init__()
+        self.dilations = dilations
+        for i, fin in enumerate(fins):
+            self.add_module(
+                f'conv{i}', 
+                nn.Sequential(nn.Conv2d(fin, fout, 3, padding=1, bias=False), norm(fout), actv, nn.Upsample(scale_factor=2**i, mode=mode, align_corners=align_corners))
+            )
+        for i, dilation in enumerate(dilations):
+            self.add_module(
+                f'dilation{i}', 
+                nn.Sequential(SeparableConv2d(len(fins)*fout, fout, kernel_size=3, padding=dilation, dilation=dilation, bias=False), norm(fout), actv)
+            )
+        self.pointwise = nn.Conv2d(len(dilations)*fout, fout, kernel_size=1, bias=False)
+    def __getitem__(self, key):
+        return getattr(self, key)
+    def forward(self, *inputs):
+        out = torch.cat([self[f'conv{i}'](input) for i, input in enumerate(inputs)], dim=1)
+        out = torch.cat([self[f'dilation{i}'](out) for i, _ in enumerate(self.dilations)], dim=1)
+        out = self.pointwise(out)
+        out = F.tanh(out)
+        return out
 
 class ToRGB(nn.Module):
     def __init__(self, in_channels, out_channels=3):
@@ -22,14 +67,26 @@ class ToRGB(nn.Module):
         out = F.tanh(out)
         return out
 
+class ToRGB2(nn.Module):
+    def __init__(self, in_channels, out_channels=3):
+        super().__init__()
+        self.conv_img = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+    def forward(self, input):
+        out = F.leaky_relu(input, 2e-1)
+        out = self.conv_img(out)
+        return out
+
 class JPUMaGANGenerator(BaseNetwork):
     """
     すべてのlatentをJPUに入力する．pseudo segmentは活性化させる
     ボトルネックをもう一段低解像度にしてreceptive fieldの拡大を試みる
+    do not activate ToRGB
     """
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+        parser.add_argument('--pseudo_semantic_nc', type=int, default=64,
+                            help='#number of class for pseudo semantic segmentation')
         return parser
 
     def __init__(self, opt):
@@ -48,7 +105,6 @@ class JPUMaGANGenerator(BaseNetwork):
         self.conv_3 = nn.Conv2d(4  * nf              , 8  * nf , kernel_size=3 , stride=2   , padding=1)
         self.conv_4 = nn.Conv2d(8  * nf              , 16 * nf , kernel_size=3 , stride=2   , padding=1)
         self.conv_5 = nn.Conv2d(16 * nf              , 32 * nf , kernel_size=3 , stride=2   , padding=1)
-        self.conv_6 = nn.Conv2d(32 * nf              , 32 * nf , kernel_size=3 , padding=1)
 
         # down
         self.norm_1 = nn.InstanceNorm2d( 2 * nf, affine=False)
@@ -57,28 +113,33 @@ class JPUMaGANGenerator(BaseNetwork):
         self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
         self.norm_5 = nn.InstanceNorm2d(32 * nf, affine=False)
 
-        # up
-        opt_copy = argparse.Namespace(**vars(opt))
-        opt_copy.semantic_nc = opt.semantic_nc + 2048
-        self.spaderesblk_6 = SPADEResnetBlock(32 * nf, 32 * nf, opt_copy)
-        opt_copy.semantic_nc = opt.semantic_nc + 1024
-        self.spaderesblk_5 = SPADEResnetBlock(32 * nf, 16 * nf, opt_copy)
-        opt_copy.semantic_nc = opt.semantic_nc + 512
-        self.spaderesblk_4 = SPADEResnetBlock(16 * nf,  8 * nf, opt_copy)
-        opt_copy.semantic_nc = opt.semantic_nc + 256
-        self.spaderesblk_3 = SPADEResnetBlock( 8 * nf,  4 * nf, opt_copy)
-        opt_copy.semantic_nc = opt.semantic_nc + 128
-        self.spaderesblk_2 = SPADEResnetBlock( 4 * nf,  2 * nf, opt_copy)
-        opt_copy.semantic_nc = opt.semantic_nc + 64
-        self.spaderesblk_1 = SPADEResnetBlock( 2 * nf,  1 * nf, opt_copy)
+        self.jpu = FlexibleJPU(
+            fins=[128, 256, 512, 1024, 2048],
+            fout=opt.pseudo_semantic_nc,
+            dilations=[1, 2, 4, 8],
+        )
+
+        self.fc = nn.Conv2d(opt.semantic_nc + opt.pseudo_semantic_nc, 32 * nf, 3, padding=1)
+        self.up2 = nn.Upsample(scale_factor=2, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
+        self.down = nn.Upsample(scale_factor=2**-5, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
 
         # up
-        self.to_rgb_6 = ToRGB(32 * nf)
-        self.to_rgb_5 = ToRGB(16 * nf)
-        self.to_rgb_4 = ToRGB( 8 * nf)
-        self.to_rgb_3 = ToRGB( 4 * nf)
-        self.to_rgb_2 = ToRGB( 2 * nf)
-        self.to_rgb_1 = ToRGB( 1 * nf)
+        opt_copy = argparse.Namespace(**vars(opt))
+        opt_copy.semantic_nc = opt.semantic_nc + opt.pseudo_semantic_nc
+        self.spaderesblk_6 = SPADESimpleBlock(32 * nf, 32 * nf, opt_copy)
+        self.spaderesblk_5 = SPADESimpleBlock(32 * nf, 16 * nf, opt_copy)
+        self.spaderesblk_4 = SPADESimpleBlock(16 * nf,  8 * nf, opt_copy)
+        self.spaderesblk_3 = SPADESimpleBlock( 8 * nf,  4 * nf, opt_copy)
+        self.spaderesblk_2 = SPADESimpleBlock( 4 * nf,  2 * nf, opt_copy)
+        self.spaderesblk_1 = SPADESimpleBlock( 2 * nf,  1 * nf, opt_copy)
+
+        # up
+        self.to_rgb_6 = ToRGB2(32 * nf)
+        self.to_rgb_5 = ToRGB2(16 * nf)
+        self.to_rgb_4 = ToRGB2( 8 * nf)
+        self.to_rgb_3 = ToRGB2( 4 * nf)
+        self.to_rgb_2 = ToRGB2( 2 * nf)
+        self.to_rgb_1 = ToRGB2( 1 * nf)
 
     def forward(self, input, z=None):
         latent_0 = self.conv_0(input)                             # 64   # 512
@@ -88,30 +149,37 @@ class JPUMaGANGenerator(BaseNetwork):
         latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 32
         latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 2048 # 16x
 
-        x = self.conv_6(self.lrelu(latent_5))      # 2048 # 16x
+        seg = self.jpu(latent_1, latent_2, latent_3, latent_4, latent_5)
+        seg = self.up2(seg)
+        seg = F.tanh(seg)
+        seg = torch.cat([input, seg], dim=1)
 
-        x = self.spaderesblk_6(x, input, latent_5) # 2048 # 16x
+        x = self.down(seg)
+        x = self.fc(x)
+
+        x = self.spaderesblk_6(x, seg) # 2048 # 16x
         out = self.to_rgb_6(x)    # 3    # 16x
         out = self.up(out)        # 3    # 32x
         x = self.up(x)            # 2048 # 32x 
-        x = self.spaderesblk_5(x, input, latent_4) # 1024 # 32
+        x = self.spaderesblk_5(x, seg) # 1024 # 32
         out = out + self.to_rgb_5(x) # 3 # 32
         out = self.up(out)      # 3 # 64
         x = self.up(x)
-        x = self.spaderesblk_4(x, input, latent_3) # 512  # 64
+        x = self.spaderesblk_4(x, seg) # 512  # 64
         out = out + self.to_rgb_4(x) # 3 # 64
         out = self.up(out)      # 3 # 128
         x = self.up(x)
-        x = self.spaderesblk_3(x, input, latent_2) # 256  # 128
+        x = self.spaderesblk_3(x, seg) # 256  # 128
         out = out + self.to_rgb_3(x) # 3 # 128
         out = self.up(out)      # 3 # 256
         x = self.up(x)
-        x = self.spaderesblk_2(x, input, latent_1) # 128  # 256
+        x = self.spaderesblk_2(x, seg) # 128  # 256
         out = out + self.to_rgb_2(x) # 3 # 256
         out = self.up(out)      # 3 # 512
         x = self.up(x)
-        x = self.spaderesblk_1(x, input, latent_0) # 64   # 512
+        x = self.spaderesblk_1(x, seg) # 64   # 512
         out = out + self.to_rgb_1(x) # 3 # 512
+        out = F.tanh(out)
         return out
 
 class MiGANSkipLatentALLGenerator(BaseNetwork):
