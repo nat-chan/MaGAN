@@ -57,10 +57,6 @@ class ConvEncoder(BaseNetwork):
         return mu, logvar
 
 class I2VEncoder(BaseNetwork):
-    @staticmethod
-    def modify_commandline_options(parser, is_train):
-        parser.add_argument('--use_i2v_prob', action='store_true', help='activate i2v bottleneck layer')
-        return parser
     def __init__(self, opt):
         super().__init__()
         self.opt = opt
@@ -141,5 +137,4 @@ class I2VEncoder(BaseNetwork):
             x = self.relu6_3(x)
             x = self.conv6_4(x)
             x = self.pool6(x)
-            x = self.prob(x)
             return x

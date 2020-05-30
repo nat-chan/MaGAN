@@ -87,7 +87,7 @@ class AlacGANGenerator(BaseNetwork):
         sketch = 2*(1 - input)-1
         with torch.no_grad():
             sketch_feat = self.NetI(sketch)
-        hint = torch.zeros(1,4,128,128).to(sketch.device)
+        hint = torch.zeros(sketch.size(0),4,128,128).to(sketch.device)
         out = self.NetG(sketch, hint, sketch_feat)
         return out
 
