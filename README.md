@@ -13,6 +13,12 @@ git clone --recursive https://github.com/nat-chan/MaGAN
 cd MaGAN/
 ```
 
+If you forgot to add the `--recursive` flag when you clone this repository, you can install the submodule as follows.
+```
+cd MaGAN/
+git submodule update --init --recursive
+```
+
 This code requires Anaconda Environment. Please install dependencies by
 ```bash
 ./script_conda.sh
