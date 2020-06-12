@@ -52,3 +52,29 @@ def create_dataloader(opt):
         drop_last=opt.isTrain
     )
     return dataloader
+
+
+class PartialSampler(torch.utils.data.Sampler):
+    def __init__(self, data_source, part):
+        super().__init__(data_source)
+        self.part = part 
+        assert set(part).issubset(range(len(data_source))), "part must be a subpart of range(len(data_source))"
+
+    def __iter__(self):
+        return iter(self.part)
+
+    def __len__(self):
+        return len(self.part)
+
+def partial_dataloader(opt, instance, part=None):
+    if part is None:
+        part = range(len(instance))
+    dataloader = torch.utils.data.DataLoader(
+        instance,
+        batch_size=opt.batchSize,
+        shuffle=not opt.serial_batches,
+        num_workers=int(opt.nThreads),
+        drop_last=opt.isTrain,
+        sampler=PartialSampler(instance, part)
+    )
+    return dataloader
