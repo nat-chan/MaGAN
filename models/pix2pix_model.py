@@ -94,11 +94,14 @@ class Pix2PixModel(torch.nn.Module):
         netE = networks.define_E(opt) if opt.use_vae or opt.use_i2v else None
 
         if not opt.isTrain or opt.continue_train:
-            netG = util.load_network(netG, 'G', opt.which_epoch, opt)
-            if opt.isTrain:
-                netD = util.load_network(netD, 'D', opt.which_epoch, opt)
-            if opt.use_vae:
-                netE = util.load_network(netE, 'E', opt.which_epoch, opt)
+            try:
+                netG = util.load_network(netG, 'G', opt.which_epoch, opt)
+                if opt.isTrain:
+                    netD = util.load_network(netD, 'D', opt.which_epoch, opt)
+                if opt.use_vae:
+                    netE = util.load_network(netE, 'E', opt.which_epoch, opt)
+            except:
+                print(f'Could not load {opt.which_epoch} model.') 
 
         return netG, netD, netE
 

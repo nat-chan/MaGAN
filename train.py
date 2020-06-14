@@ -38,12 +38,11 @@ for epoch in iter_counter.training_epochs():
     skip = iter_counter.total_steps_so_far % len(dataset)
     iter_counter.epoch_iter = skip
     dataloader = data.partial_dataloader(opt, dataset, range(skip, len(dataset)))
-#    pbar = tqdm(dataloader, dynamic_ncols=True, initial=skip//opt.batchSize, total=len(dataset)//opt.batchSize)
-#    for i, data_i in enumerate(pbar, start=iter_counter.epoch_iter//opt.batchSize):
-    for i, data_i in enumerate(dataloader, start=iter_counter.epoch_iter//opt.batchSize):
-        print(data_i['path'][0].split('/')[-1][:-4])
+    pbar = tqdm(dataloader, dynamic_ncols=True, initial=skip//opt.batchSize, total=len(dataset)//opt.batchSize)
+    for i, data_i in enumerate(pbar, start=iter_counter.epoch_iter//opt.batchSize):
+#        print(data_i['path'][0].split('/')[-1][:-4])
         iter_counter.record_one_iteration()
-#        pbar.set_description(f'epoch={epoch} skip={skip//opt.batchSize} total={iter_counter.total_steps_so_far}')
+        pbar.set_description(f'epoch={epoch} skip={skip//opt.batchSize} total={iter_counter.total_steps_so_far}')
 
         # Training
         # train generator
@@ -74,10 +73,11 @@ for epoch in iter_counter.training_epochs():
             print(f'saving the latest model (epoch {epoch}, total_steps {iter_counter.total_steps_so_far})')
             if opt.save_steps:
                 trainer.save('s%s' % iter_counter.total_steps_so_far)
+                trainer.save('latest')
             else:
                 trainer.save('latest')
             iter_counter.record_current_iter()
-#    pbar.close()
+    pbar.close()
     trainer.update_learning_rate(epoch)
     iter_counter.record_epoch_end()
 
