@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from models.networks.base_network import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 from models.networks.architecture import ResnetBlock
-from models.networks.architecture import SPADEResnetBlock, SPADESimpleBlock
+from models.networks.architecture import SPADEResnetBlock, SPADESimpleBlock, ModulatedSPADEResnetBlock
 from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
 import models.networks.standard as AlacGAN
 
@@ -77,6 +77,97 @@ class ToRGB2(nn.Module):
         out = self.conv_img(out)
         return out
 
+class ModulatedMaGANSkipLatentALLGenerator(BaseNetwork):
+    """
+    ModulatedConvでstyleを適応する
+    """
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+        parser.set_defaults(z_dim=1539)
+        return parser
+
+    def __init__(self, opt):
+        super().__init__()
+        self.opt = opt
+        nf = opt.ngf #64
+
+        # sharing modules in each hierarchy, number of learning parameters == 0
+        self.lrelu = nn.LeakyReLU(0.2, True)
+        self.up = nn.Upsample(scale_factor=2, mode=opt.resize_mode, align_corners=opt.resize_align_corners)
+
+        # down
+        self.conv_0 = nn.Conv2d(self.opt.semantic_nc , 1  * nf , kernel_size=3 , stride=1   , padding=1)
+        self.conv_1 = nn.Conv2d(1  * nf              , 2  * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_2 = nn.Conv2d(2  * nf              , 4  * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_3 = nn.Conv2d(4  * nf              , 8  * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_4 = nn.Conv2d(8  * nf              , 16 * nf , kernel_size=3 , stride=2   , padding=1)
+        self.conv_5 = nn.Conv2d(16 * nf              , 16 * nf , kernel_size=3 , padding=1)
+        self.conv_6 = nn.Conv2d(16 * nf              , 16 * nf , kernel_size=3 , padding=1)
+
+        # down
+        self.norm_1 = nn.InstanceNorm2d( 2 * nf, affine=False)
+        self.norm_2 = nn.InstanceNorm2d( 4 * nf, affine=False)
+        self.norm_3 = nn.InstanceNorm2d( 8 * nf, affine=False)
+        self.norm_4 = nn.InstanceNorm2d(16 * nf, affine=False)
+        self.norm_5 = nn.InstanceNorm2d(16 * nf, affine=False)
+
+        # up
+        opt_copy = argparse.Namespace(**vars(opt))
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
+        self.spaderesblk_6 = ModulatedSPADEResnetBlock(16 * nf, 16 * nf, opt.z_dim, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 1024
+        self.spaderesblk_5 = ModulatedSPADEResnetBlock(16 * nf, 16 * nf, opt.z_dim, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 512
+        self.spaderesblk_4 = ModulatedSPADEResnetBlock(16 * nf,  8 * nf, opt.z_dim, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 256
+        self.spaderesblk_3 = ModulatedSPADEResnetBlock( 8 * nf,  4 * nf, opt.z_dim, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 128
+        self.spaderesblk_2 = ModulatedSPADEResnetBlock( 4 * nf,  2 * nf, opt.z_dim, opt_copy)
+        opt_copy.semantic_nc = opt.semantic_nc + 64
+        self.spaderesblk_1 = ModulatedSPADEResnetBlock( 2 * nf,  1 * nf, opt.z_dim, opt_copy)
+
+        # up
+        self.to_rgb_6 = ToRGB(16 * nf)
+        self.to_rgb_5 = ToRGB(16 * nf)
+        self.to_rgb_4 = ToRGB( 8 * nf)
+        self.to_rgb_3 = ToRGB( 4 * nf)
+        self.to_rgb_2 = ToRGB( 2 * nf)
+        self.to_rgb_1 = ToRGB( 1 * nf)
+
+    def forward(self, input, z=None):
+        z = z.reshape(-1, self.opt.z_dim)
+        latent_0 = self.conv_0(input)                             # 64   # 512
+        latent_1 = self.norm_1(self.conv_1(self.lrelu(latent_0))) # 128  # 256
+        latent_2 = self.norm_2(self.conv_2(self.lrelu(latent_1))) # 256  # 128
+        latent_3 = self.norm_3(self.conv_3(self.lrelu(latent_2))) # 512  # 64
+        latent_4 = self.norm_4(self.conv_4(self.lrelu(latent_3))) # 1024 # 32
+        latent_5 = self.norm_5(self.conv_5(self.lrelu(latent_4))) # 1024 # 32
+
+        x = self.conv_6(self.lrelu(latent_5))      # 1024 # 32
+        x = self.spaderesblk_6(x, input, z, latent_5) # 1024 # 32
+        out = self.to_rgb_6(x)       # 3 # 32
+        x = self.spaderesblk_5(x, input, z, latent_4) # 1024 # 32
+        out = out + self.to_rgb_5(x) # 3 # 32
+        out = self.up(out)      # 3 # 64
+        x = self.up(x)
+        x = self.spaderesblk_4(x, input, z, latent_3) # 512  # 64
+        out = out + self.to_rgb_4(x) # 3 # 64
+        out = self.up(out)      # 3 # 128
+        x = self.up(x)
+        x = self.spaderesblk_3(x, input, z, latent_2) # 256  # 128
+        out = out + self.to_rgb_3(x) # 3 # 128
+        out = self.up(out)      # 3 # 256
+        x = self.up(x)
+        x = self.spaderesblk_2(x, input, z, latent_1) # 128  # 256
+        out = out + self.to_rgb_2(x) # 3 # 256
+        out = self.up(out)      # 3 # 512
+        x = self.up(x)
+        x = self.spaderesblk_1(x, input, z, latent_0) # 64   # 512
+        out = out + self.to_rgb_1(x) # 3 # 512
+        return out
+
+
 class AlacGANGenerator(BaseNetwork):
     def __init__(self, opt):
         super().__init__()
@@ -101,8 +192,6 @@ class JPUMaGANGenerator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
-        parser.add_argument('--pseudo_semantic_nc', type=int, default=64,
-                            help='#number of class for pseudo semantic segmentation')
         return parser
 
     def __init__(self, opt):
@@ -196,7 +285,10 @@ class JPUMaGANGenerator(BaseNetwork):
         x = self.spaderesblk_1(x, seg) # 64   # 512
         out = out + self.to_rgb_1(x) # 3 # 512
         out = F.tanh(out)
-        return out
+        if self.opt.dissect:
+            return locals()
+        else:
+            return out
 
 class MiGANSkipLatentALLGenerator(BaseNetwork):
     """

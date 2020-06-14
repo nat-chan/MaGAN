@@ -82,6 +82,7 @@ class BaseOptions():
         parser.add_argument('--dissect', action='store_true', help='dissect generator')
         parser.add_argument('--netE', type=str, default='conv', help='selects model to use for netE (conv|i2v)')
         parser.add_argument('--use_i2v', action='store_true', help='enable training with an image encoder.')
+        parser.add_argument('--pseudo_semantic_nc', type=int, default=64, help='#number of class for pseudo semantic segmentation')
 
         self.initialized = True
         return parser
