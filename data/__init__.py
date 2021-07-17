@@ -72,7 +72,7 @@ def partial_dataloader(opt, instance, part=None):
     dataloader = torch.utils.data.DataLoader(
         instance,
         batch_size=opt.batchSize,
-        shuffle=not opt.serial_batches,
+        shuffle=False,
         num_workers=int(opt.nThreads),
         drop_last=opt.isTrain,
         sampler=PartialSampler(instance, part)

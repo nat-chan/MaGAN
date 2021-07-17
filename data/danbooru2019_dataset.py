@@ -40,7 +40,6 @@ class Danbooru2019Dataset(Pix2pixDataset):
         self.instance_paths = None
         self.label_paths = None
         self.dataset_size = len(self.image_paths)
-        self.dummy = torch.Tensor([]).reshape((0,256,256)).cuda()
 
     def get_paths(self, opt):
         root = opt.dataroot
@@ -75,12 +74,11 @@ class Danbooru2019Dataset(Pix2pixDataset):
         hed_tensor = 1 - hed_tensor # nega -> posi
 
         if self.opt.leak_low == -1 and self.opt.leak_high == -1:
-            input_dict = {'label': self.dummy,
-                          'instance': self.dummy,
-                          'image': image_tensor.cuda(),
-                          'hed': hed_tensor.cuda(),
-                          'path': image_path,
-                          }
+            input_dict = {
+                'image': image_tensor.cuda(),
+                'hed': hed_tensor.cuda(),
+                'path': image_path,
+            }
         else:
             mask = torch.zeros(hed_tensor.shape, dtype=torch.float32)
             n = int(torch.randint(self.opt.leak_low, self.opt.leak_high, (1,)))
@@ -95,13 +93,12 @@ class Danbooru2019Dataset(Pix2pixDataset):
                     mask[0, x[i], y[i]+1] = 1.
                     mask[0, x[i], y[i]-1] = 1.
 
-            input_dict = {'label': self.dummy,
-                          'instance': self.dummy,
-                          'image': image_tensor.cuda(),
-                          'hed': hed_tensor.cuda(),
-                          'mask': mask.cuda(),
-                          'path': image_path,
-                          }
+            input_dict = {
+                'image': image_tensor.cuda(),
+                'hed': hed_tensor.cuda(),
+                'mask': mask.cuda(),
+                'path': image_path,
+            }
         # Give subclasses a chance to modify the final output
         self.postprocess(input_dict)
 

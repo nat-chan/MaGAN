@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
 import torch.nn.utils.spectral_norm as spectral_norm
+from models.networks.modulated_conv import ModulatedConv2d
 
 
 # Returns a function that creates a normalization function
@@ -23,9 +24,9 @@ def get_nonspade_norm_layer(opt, norm_type='instance'):
     # this function will be returned
     def add_norm_layer(layer):
         nonlocal norm_type
+        subnorm_type = norm_type.lstrip('spectral')
         if norm_type.startswith('spectral'):
             layer = spectral_norm(layer)
-            subnorm_type = norm_type[len('spectral'):]
 
         if subnorm_type == 'none' or len(subnorm_type) == 0:
             return layer
@@ -64,7 +65,7 @@ def get_nonspade_norm_layer(opt, norm_type='instance'):
 # |norm_nc|: the #channels of the normalized activations, hence the output dim of SPADE
 # |label_nc|: the #channels of the input semantic map, hence the input dim of SPADE
 class SPADE(nn.Module):
-    def __init__(self, config_text, norm_nc, label_nc, mode='nearest', align_corners=None):
+    def __init__(self, config_text, norm_nc, label_nc, mode='nearest', align_corners=None, style_dim=None):
         super().__init__()
 
         self.mode = mode
@@ -82,6 +83,8 @@ class SPADE(nn.Module):
             self.param_free_norm = SynchronizedBatchNorm2d(norm_nc, affine=False)
         elif param_free_norm_type == 'batch':
             self.param_free_norm = nn.BatchNorm2d(norm_nc, affine=False)
+        elif param_free_norm_type == 'none':
+            self.param_free_norm = lambda x:x
         else:
             raise ValueError('%s is not a recognized param-free norm type in SPADE'
                              % param_free_norm_type)
@@ -106,11 +109,13 @@ class SPADE(nn.Module):
             self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
         elif self.config_text.startswith('v2blade'):
             self.mlp_gamma = nn.Conv2d(label_nc, norm_nc, kernel_size=ks, padding=pw)
+        elif self.config_text.startswith('modulatedv2blade'):
+            self.mlp_gamma = ModulatedConv2d(label_nc, norm_nc, style_dim, kernel_size=ks, padding=pw)
         elif self.config_text.startswith('clade'):
             self.mlp_gamma = nn.Conv2d(label_nc, norm_nc, kernel_size=1)
             self.mlp_beta = nn.Conv2d(label_nc, norm_nc, kernel_size=1)
 
-    def forward(self, x, segmap, append=None):
+    def forward(self, x, segmap, append=None, style=None):
 
         # Part 1. generate parameter-free normalized activations
         normalized = self.param_free_norm(x)
@@ -131,6 +136,9 @@ class SPADE(nn.Module):
             out = normalized * (1 + gamma)
         elif self.config_text.startswith('v2blade'):
             gamma = self.mlp_gamma(segmap)
+            out = normalized * (1 + gamma)
+        elif self.config_text.startswith('modulatedv2blade'):
+            gamma = self.mlp_gamma(segmap, style)
             out = normalized * (1 + gamma)
         elif self.config_text.startswith('clade'):
             gamma = self.mlp_gamma(segmap)
