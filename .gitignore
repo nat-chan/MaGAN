@@ -12,3 +12,9 @@ results/
 .vim/
 runs/
 tensorboard
+
+# dl from /resources/url.txt
+/resources/i2v.pth
+/resources/illust2vec_tag_ver200.pth
+/resources/illust2vec_ver200.pth
+/resources/tag_list.json
