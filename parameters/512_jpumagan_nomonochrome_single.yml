@@ -1,0 +1,16 @@
+name: 512_jpumagan_nomonochrome_single
+netG: jpumagan
+#netD: residual_n_layer
+norm_G: spectralv2bladesyncbatch3x3
+dataset_mode: danbooru2019
+dataroot: /home/natsuki/danbooru2019
+label_nc: 1
+use_hed: true
+no_instance: true
+load_size: 512
+crop_size: 512
+display_winsize: 512
+#no_ganFeat_loss: true
+resize_mode: bilinear
+resize_align_corners: true
+pseudo_semantic_nc: 64

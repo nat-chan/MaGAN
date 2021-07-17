@@ -1,0 +1,5 @@
+name: maganlatentall
+netG: maganlatentall
+dataset_mode: cocohed
+dataroot: datasets/coco_stuff_hed
+use_hed: true

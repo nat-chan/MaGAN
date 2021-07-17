@@ -1,6 +1,6 @@
-name: debug
-netG: godu
-norm_G: spectralspadesyncbatch3x3
+name: 512_clade_nomonochrome_single
+netG: miganlatentall
+norm_G: spectralcladesyncbatch3x3
 dataset_mode: danbooru2019
 dataroot: /home/natsuki/danbooru2019
 label_nc: 1
@@ -9,5 +9,4 @@ no_instance: true
 load_size: 512
 crop_size: 512
 display_winsize: 512
-serial_batches: true
-#continue_train: true
+#preprocess_mode: ''

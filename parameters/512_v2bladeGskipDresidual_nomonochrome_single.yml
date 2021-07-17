@@ -1,0 +1,34 @@
+name: 512_v2bladeGskipDresidual_nomonochrome_single
+netG: miganskiplatentall
+netD: residual_n_layer
+norm_G: spectralv2bladesyncbatch3x3
+dataset_mode: danbooru2019
+dataroot: /home/natsuki/danbooru2019
+label_nc: 1
+use_hed: true
+no_instance: true
+load_size: 512
+crop_size: 512
+display_winsize: 512
+no_ganFeat_loss: true
+resize_mode: bilinear
+resize_align_corners: true
+#in out   k s p
+# 4  64   4 2 2
+# 64 128  4 2 2
+# 128 256 4 2 2
+# 256 512 4 1 2
+# 512 1   4 1 2
+#
+#torch.Size([16, 4, 512, 512]) input
+#torch.Size([16, 64, 257, 257])
+#torch.Size([16, 128, 129, 129])
+#torch.Size([16, 256, 65, 65])
+#torch.Size([16, 512, 66, 66])
+#torch.Size([16, 1, 67, 67])
+#
+#torch.Size([16, 64, 257, 257])
+#torch.Size([16, 128, 129, 129])
+#torch.Size([16, 256, 65, 65])
+#torch.Size([16, 512, 66, 66])
+#torch.Size([16, 1, 67, 67])
