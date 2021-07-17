@@ -7,9 +7,11 @@ conda install pillow=6.1
 conda install -c anaconda tensorflow-gpu
 conda install -c anaconda configargparse
 conda install -c conda-forge tensorboardx
+conda instal tqdm
 
 # development
 conda install -c anaconda ruby
 conda install -c conda-forge tmux
 conda install -c conda-forge nbstripout
 conda install -c conda-forge nbdime
+conda install -c conda-forge debugpy
